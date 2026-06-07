@@ -30,6 +30,58 @@ function nonce() {
   return s;
 }
 
+// ── Markdown → HTML (shared by the webview client AND the unit tests) ────────────
+// These are REAL functions: we ship their `.toString()` source into the webview (so
+// there is one implementation, and no fragile backslash-escaping inside a template
+// literal), and export them so tests can call them directly. Safety model: escape
+// the source first; only ever emit a known tag set; for links also escape the URL as
+// an ATTRIBUTE (quotes) and allow only safe schemes (no javascript:/data:).
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function escAttr(s) {
+  return esc(s).replace(/"/g, '&quot;');
+}
+function inline(t) {
+  t = esc(t);
+  t = t.replace(/`([^`]+)`/g, function (_, c) { return '<code>' + c + '</code>'; });
+  t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function (_, txt, url) {
+    var u = String(url).trim();
+    var safe = /^(https?:|mailto:|#|\/|\.)/i.test(u) ? u : '#';
+    return '<a href="' + escAttr(safe) + '" title="' + escAttr(safe) + '">' + txt + '</a>';
+  });
+  return t;
+}
+function mdToHtml(md) {
+  var lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
+  var html = '', inCode = false, inList = false, para = [];
+  function flushPara() { if (para.length) { html += '<p>' + inline(para.join(' ')) + '</p>'; para = []; } }
+  function flushList() { if (inList) { html += '</ul>'; inList = false; } }
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    if (/^```/.test(line)) { if (inCode) { html += '</code></pre>'; inCode = false; } else { flushPara(); flushList(); html += '<pre><code>'; inCode = true; } continue; }
+    if (inCode) { html += esc(line) + '\n'; continue; }
+    var h = /^(#{1,6})\s+(.*)$/.exec(line);
+    if (h) { flushPara(); flushList(); var lvl = h[1].length; html += '<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>'; continue; }
+    var q = /^>\s?(.*)$/.exec(line);
+    if (q) { flushPara(); flushList(); html += '<blockquote>' + inline(q[1]) + '</blockquote>'; continue; }
+    var li = /^\s*[-*]\s+(.*)$/.exec(line);
+    if (li) { flushPara(); if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(li[1]) + '</li>'; continue; }
+    if (/^\s*$/.test(line)) { flushPara(); flushList(); continue; }
+    para.push(line);
+  }
+  if (inCode) html += '</code></pre>';
+  flushPara(); flushList();
+  return html;
+}
+
+/** The four md helpers as source, for embedding into the webview client script. */
+function markdownClientSource() {
+  return [esc, escAttr, inline, mdToHtml].map(function (f) { return f.toString(); }).join('\n');
+}
+
 /** Compute the full state object the webview renders from. */
 async function computeState(deps, targetFolder) {
   const res = await hubReader.scan(deps.hubRoot ? { hubRoot: deps.hubRoot } : {});
@@ -54,7 +106,10 @@ async function computeState(deps, targetFolder) {
 
 /** The static HTML shell (theme-coloured CSS + embedded initial state + client script). */
 function renderHtml(state, theNonce, cspSource) {
-  const json = JSON.stringify(state).replace(/</g, '\\u003c');
+  const json = JSON.stringify(state)
+    .replace(/</g, '\\u003c')
+    .split(String.fromCharCode(0x2028)).join('\\u2028')
+    .split(String.fromCharCode(0x2029)).join('\\u2029');
   const csp = [
     "default-src 'none'",
     `img-src ${cspSource} https: data:`,
@@ -263,37 +318,10 @@ function renderHtml(state, theNonce, cspSource) {
       mainEl.appendChild(wrap);
     }
 
-    // ── Minimal, SAFE Markdown → HTML (source escaped first; only known tags) ──────
-    function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-    function inline(t) {
-      t = esc(t);
-      t = t.replace(/\`([^\`]+)\`/g, (_, c) => '<code>' + c + '</code>');
-      t = t.replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>');
-      t = t.replace(/\\*([^*]+)\\*/g, '<em>$1</em>');
-      t = t.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, (_, txt, url) => '<a href="' + esc(url) + '" title="' + esc(url) + '">' + txt + '</a>');
-      return t;
-    }
-    function mdToHtml(md) {
-      const lines = String(md || '').replace(/\\r\\n/g, '\\n').split('\\n');
-      let html = '', inCode = false, inList = false, para = [];
-      const flushPara = () => { if (para.length) { html += '<p>' + inline(para.join(' ')) + '</p>'; para = []; } };
-      const flushList = () => { if (inList) { html += '</ul>'; inList = false; } };
-      for (const line of lines) {
-        if (/^\`\`\`/.test(line)) { if (inCode) { html += '</code></pre>'; inCode = false; } else { flushPara(); flushList(); html += '<pre><code>'; inCode = true; } continue; }
-        if (inCode) { html += esc(line) + '\\n'; continue; }
-        const h = /^(#{1,6})\\s+(.*)$/.exec(line);
-        if (h) { flushPara(); flushList(); const lvl = h[1].length; html += '<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>'; continue; }
-        const q = /^>\\s?(.*)$/.exec(line);
-        if (q) { flushPara(); flushList(); html += '<blockquote>' + inline(q[1]) + '</blockquote>'; continue; }
-        const li = /^\\s*[-*]\\s+(.*)$/.exec(line);
-        if (li) { flushPara(); if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(li[1]) + '</li>'; continue; }
-        if (/^\\s*$/.test(line)) { flushPara(); flushList(); continue; }
-        para.push(line);
-      }
-      if (inCode) html += '</code></pre>';
-      flushPara(); flushList();
-      return html;
-    }
+    // ── Markdown → HTML helpers (esc / escAttr / inline / mdToHtml) ───────────────
+    // Injected as REAL function source (not a hand-escaped string) so the host and
+    // the unit tests share one implementation. See markdownClientSource().
+${markdownClientSource()}
 
     function renderPreview() {
       mainEl.textContent = '';
@@ -400,17 +428,11 @@ async function openWebviewPalette(vscode, deps) {
       }
 
       if (msg.type === 'setCategory') {
+        // label '' / 'Uncategorized' clears it; a new label creates the category.
+        // The webview collects new-category text via an in-panel modal, so the host
+        // no longer needs an InputBox here.
         manifest.setCategory(hubRoot, msg.name, msg.label || '');
         await pushState();
-        return;
-      }
-      if (msg.type === 'newCategory') {
-        const label = await vscode.window.showInputBox({
-          prompt: `New category for "${msg.name}"`,
-          placeHolder: 'e.g. Content & Posts',
-          validateInput: (v) => (v && v.trim().length > 30 ? 'Keep it short (≤ 30 chars).' : null),
-        });
-        if (label && label.trim()) { manifest.setCategory(hubRoot, msg.name, label.trim()); await pushState(); }
         return;
       }
 
@@ -440,4 +462,4 @@ async function openWebviewPalette(vscode, deps) {
   panel.onDidDispose(() => { /* nothing to clean up */ });
 }
 
-module.exports = { openWebviewPalette, renderHtml, computeState, nonce, projectSkillsDir, globalSkillsDir };
+module.exports = { openWebviewPalette, renderHtml, computeState, nonce, projectSkillsDir, globalSkillsDir, esc, escAttr, inline, mdToHtml, markdownClientSource };

@@ -89,7 +89,8 @@ function removeInjection() {
     const blocks = injector.findBlocks(content);
     if (blocks.length === 0) continue;
     const cleaned = injector.stripAllBlocks(content).replace(/\s+$/, '') + '\n';
-    writeAndVerify(t.indexPath, cleaned, (w) => injector.findBlocks(w).length === 0);
+    const ok = writeAndVerify(t.indexPath, cleaned, (w) => injector.findBlocks(w).length === 0);
+    if (!ok) { console.error(`[SkillsPalette] failed to remove injection from ${t.indexPath}`); continue; }
     try { fs.unlinkSync(backupPathFor(t.indexPath)); } catch (_) { /* ignore */ }
     changed++;
   }

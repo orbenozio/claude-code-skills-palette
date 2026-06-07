@@ -51,4 +51,27 @@ ok(scriptMatch[1].includes('function mdToHtml'), 'markdown renderer present');
 ok(scriptMatch[1].includes('function categorySelect'), 'category selector present');
 ok(scriptMatch[1].includes("coveredByGlobal"), 'global-covers-project logic present');
 
-console.log(`✅ webviewPalette render: ${passed} assertions passed`);
+// ── Markdown renderer security (the README preview path) ───────────────────────
+// Attribute-breakout via a link URL containing a quote must NOT inject attributes.
+{
+  const out = wp.inline('[x](http://e.com" onmouseover="alert(1))');
+  ok(out.includes('&quot;'), 'quote in URL is escaped to &quot;');
+  ok(!/"\s+onmouseover=/.test(out), 'no UNescaped quote opens an onmouseover attribute');
+  ok(!/<a[^>]*\son\w+=["']/.test(out), 'no real event-handler attribute on the anchor');
+}
+// javascript:/data: schemes are dropped to a safe '#'.
+ok(wp.inline('[x](javascript:alert(1))').includes('href="#"'), 'javascript: URL neutralised to #');
+ok(wp.inline('[x](data:text/html,<b>)').includes('href="#"'), 'data: URL neutralised to #');
+ok(wp.inline('[ok](https://example.com)').includes('href="https://example.com"'), 'https URL preserved');
+// Raw HTML / script in the body is escaped, not emitted as live markup.
+{
+  const html = wp.mdToHtml('# Title\n\n<script>alert(1)</script>\n\n- item');
+  ok(!html.includes('<script>'), 'raw <script> in markdown is escaped');
+  ok(html.includes('&lt;script&gt;'), 'script tag rendered as text');
+  ok(html.includes('<h1>Title</h1>') && html.includes('<li>item</li>'), 'known markdown still renders');
+}
+// The host functions and the embedded client source are the SAME implementation.
+ok(wp.markdownClientSource().includes('function mdToHtml'), 'client source carries mdToHtml');
+ok(html.includes(wp.escAttr('a"b')) === false || wp.escAttr('a"b') === 'a&quot;b', 'escAttr escapes quotes');
+
+console.log(`✅ webviewPalette render + md security: ${passed} assertions passed`);

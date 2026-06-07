@@ -144,15 +144,16 @@ function link(skill, hubSkillPath, skillsDir) {
 /** Remove a junction (the link only — never its target's contents). */
 function removeJunction(linkPath) {
   // A directory junction is removed with rmdir; this unlinks the reparse point and
-  // does NOT recurse into / delete the hub target.
+  // does NOT recurse into / delete the hub target. On any rmdir failure, fall back to
+  // unlink — `unlink` on a junction also removes only the reparse point, never the
+  // target's contents — so the fallback is safe regardless of the error code.
   try {
     fs.rmdirSync(linkPath);
   } catch (e) {
-    // Some Node/Windows combos prefer unlink for the reparse point; fall back.
-    if (e && (e.code === 'EPERM' || e.code === 'ENOTDIR')) {
+    try {
       fs.unlinkSync(linkPath);
-    } else {
-      throw e;
+    } catch (_) {
+      throw e; // surface the original rmdir error
     }
   }
 }
