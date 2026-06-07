@@ -1,0 +1,16 @@
+﻿# Claude / Agents hub — machine-specific junctions, not part of the project
+.claude/
+
+# OS / editor
+Thumbs.db
+.DS_Store
+*.swp
+.vscode/
+
+# Net working-time log (auto-measured via global hooks; also self-ignores)
+.timelog/
+
+# Logs / temp
+*.log
+tmp/
+temp/
