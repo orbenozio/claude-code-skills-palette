@@ -79,6 +79,21 @@ function setCategory(hubRoot, skillName, label) {
 }
 
 /**
+ * Create an empty category (no skills) if one with that label doesn't already exist.
+ * Used by the sidebar "+ New category" action. Returns the (persisted) manifest.
+ */
+function createCategory(hubRoot, label) {
+  const m = read(hubRoot);
+  const clean = String(label || '').trim();
+  if (!clean || clean.toLowerCase() === UNCATEGORIZED.toLowerCase()) return m;
+  if (!m.categories.find((c) => c.label.toLowerCase() === clean.toLowerCase())) {
+    m.categories.push({ id: slug(clean), label: clean, skills: [] });
+    write(hubRoot, m);
+  }
+  return m;
+}
+
+/**
  * Rename category `oldLabel` to `newLabel`. If a different category already has the
  * new label, the two are MERGED (skills combined). No-op if oldLabel doesn't exist
  * or newLabel is empty. Returns the updated (persisted) manifest.
@@ -113,4 +128,4 @@ function deleteCategory(hubRoot, label) {
   return m;
 }
 
-module.exports = { MANIFEST_NAME, UNCATEGORIZED, manifestPath, read, write, slug, setCategory, renameCategory, deleteCategory };
+module.exports = { MANIFEST_NAME, UNCATEGORIZED, manifestPath, read, write, slug, setCategory, createCategory, renameCategory, deleteCategory };

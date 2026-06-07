@@ -149,6 +149,8 @@ function renderHtml(state, theNonce, cspSource) {
   .cat-act svg { width: 14px; height: 14px; display: block; }
   .cat-act:hover { opacity: 1; background: rgba(128,128,128,.28); }
   .cat-act.del:hover { color: var(--vscode-errorForeground, #e06c75); }
+  .cat-add { opacity: .65; font-style: italic; margin-top: 4px; }
+  .cat-add:hover { opacity: 1; background: var(--vscode-list-hoverBackground); }
   main { overflow-y: auto; padding: 0 var(--gap) var(--gap); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); align-content: start; padding-top: var(--gap); }
   .card { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); border-radius: 8px; background: var(--vscode-editorWidget-background); }
@@ -281,6 +283,14 @@ function renderHtml(state, theNonce, cspSource) {
       };
       mk('__all__', 'All Skills', state.skills.length, false);
       for (const cat of state.categories) mk(cat, cat, c.get(cat) || 0, cat !== 'Uncategorized');
+      // "+ New category" — create an empty category straight from the sidebar.
+      const addRow = document.createElement('div');
+      addRow.className = 'cat cat-add';
+      const at = document.createElement('span'); at.className = 'cat-name'; at.textContent = '+ New category'; addRow.appendChild(at);
+      addRow.addEventListener('click', () => {
+        openModal('New category', '', function (v) { vscode.postMessage({ type: 'createCategory', label: v }); });
+      });
+      navEl.appendChild(addRow);
     }
     function visible() {
       return state.skills.filter((s) => {
@@ -511,6 +521,11 @@ async function openWebviewPalette(vscode, deps) {
         // The webview collects new-category text via an in-panel modal, so the host
         // no longer needs an InputBox here.
         manifest.setCategory(hubRoot, msg.name, msg.label || '');
+        await pushState();
+        return;
+      }
+      if (msg.type === 'createCategory') {
+        manifest.createCategory(hubRoot, msg.label || '');
         await pushState();
         return;
       }

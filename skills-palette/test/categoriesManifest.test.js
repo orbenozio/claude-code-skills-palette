@@ -47,6 +47,21 @@ ok(prod && prod.skills.length === 0, 'emptied category is kept (not auto-pruned)
 ok(!m.categories.some((c) => c.skills.includes('add-idea')), 'skill removed from all categories');
 ok(man.setCategory(root, 'linkedin-post', 'Uncategorized') && !man.read(root).categories.find((c) => c.skills.includes('linkedin-post')), '"Uncategorized" removes membership');
 
+// ── Create an empty category from the sidebar ──────────────────────────────────
+man.createCategory(root, 'Recipe');
+let mc = man.read(root);
+const recipe = mc.categories.find((c) => c.label === 'Recipe');
+ok(recipe && recipe.skills.length === 0, 'createCategory adds an empty category');
+ok(recipe.id === 'recipe', 'createCategory slugs the id');
+const countBefore = mc.categories.length;
+man.createCategory(root, 'recipe'); // case-insensitive duplicate → no-op
+ok(man.read(root).categories.length === countBefore, 'createCategory is idempotent (case-insensitive)');
+man.createCategory(root, 'Uncategorized'); // ignored
+ok(!man.read(root).categories.find((c) => c.label === 'Uncategorized'), 'createCategory ignores "Uncategorized"');
+// A skill can then be moved INTO the freshly-created empty category.
+man.setCategory(root, 'z', 'Recipe');
+ok(man.read(root).categories.find((c) => c.label === 'Recipe').skills.includes('z'), 'a skill moves into the new category');
+
 // ── Rename a category ──────────────────────────────────────────────────────────
 man.setCategory(root, 'a', 'Temp Cat');
 man.setCategory(root, 'b', 'Temp Cat');
