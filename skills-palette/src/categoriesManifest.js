@@ -78,4 +78,40 @@ function setCategory(hubRoot, skillName, label) {
   return m;
 }
 
-module.exports = { MANIFEST_NAME, UNCATEGORIZED, manifestPath, read, write, slug, setCategory };
+/**
+ * Rename category `oldLabel` to `newLabel`. If a different category already has the
+ * new label, the two are MERGED (skills combined). No-op if oldLabel doesn't exist
+ * or newLabel is empty. Returns the updated (persisted) manifest.
+ */
+function renameCategory(hubRoot, oldLabel, newLabel) {
+  const m = read(hubRoot);
+  const clean = String(newLabel || '').trim();
+  if (!clean) return m;
+  const cat = m.categories.find((c) => c.label.toLowerCase() === String(oldLabel).toLowerCase());
+  if (!cat) return m;
+  const target = m.categories.find((c) => c !== cat && c.label.toLowerCase() === clean.toLowerCase());
+  if (target) {
+    for (const s of cat.skills) if (!target.skills.includes(s)) target.skills.push(s);
+    m.categories = m.categories.filter((c) => c !== cat);
+  } else {
+    cat.label = clean;
+    cat.id = slug(clean);
+  }
+  m.categories = m.categories.filter((c) => c.skills.length > 0);
+  write(hubRoot, m);
+  return m;
+}
+
+/**
+ * Delete a category by label. Its skills simply become Uncategorized (membership is
+ * defined only by this manifest, so dropping the entry un-maps them). Non-destructive
+ * to skill content. Returns the updated (persisted) manifest.
+ */
+function deleteCategory(hubRoot, label) {
+  const m = read(hubRoot);
+  m.categories = m.categories.filter((c) => c.label.toLowerCase() !== String(label).toLowerCase());
+  write(hubRoot, m);
+  return m;
+}
+
+module.exports = { MANIFEST_NAME, UNCATEGORIZED, manifestPath, read, write, slug, setCategory, renameCategory, deleteCategory };

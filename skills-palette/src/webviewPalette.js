@@ -137,10 +137,16 @@ function renderHtml(state, theNonce, cspSource) {
   #search { flex: 1; min-width: 80px; padding: 5px 8px; color: var(--vscode-input-foreground); background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); border-radius: 4px; }
   #search:focus { outline: 1px solid var(--vscode-focusBorder); }
   nav { overflow-y: auto; padding: 8px; border-right: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); }
-  .cat { display: flex; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+  .cat { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 13px; }
   .cat:hover { background: var(--vscode-list-hoverBackground); }
   .cat.active { background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
+  .cat .cat-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cat .count { opacity: .6; font-variant-numeric: tabular-nums; }
+  .cat .cat-actions { display: none; gap: 2px; }
+  .cat:hover .cat-actions { display: inline-flex; }       /* swap count → actions on hover */
+  .cat:hover .count.swap { display: none; }
+  .cat-act { background: transparent; border: none; cursor: pointer; color: inherit; opacity: .7; padding: 0 3px; font-size: 12px; line-height: 1; border-radius: 3px; }
+  .cat-act:hover { opacity: 1; background: rgba(128,128,128,.28); }
   main { overflow-y: auto; padding: 0 var(--gap) var(--gap); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); align-content: start; padding-top: var(--gap); }
   .card { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); border-radius: 8px; background: var(--vscode-editorWidget-background); }
@@ -228,16 +234,30 @@ function renderHtml(state, theNonce, cspSource) {
     function renderNav() {
       const c = counts();
       navEl.textContent = '';
-      const mk = (id, label, n) => {
+      const mk = (id, label, n, manageable) => {
         const d = document.createElement('div');
         d.className = 'cat' + (activeCat === id ? ' active' : '');
-        const t = document.createElement('span'); t.textContent = label; d.appendChild(t);
-        const k = document.createElement('span'); k.className = 'count'; k.textContent = String(n); d.appendChild(k);
+        const t = document.createElement('span'); t.className = 'cat-name'; t.textContent = label; d.appendChild(t);
+        const k = document.createElement('span'); k.className = 'count' + (manageable ? ' swap' : ''); k.textContent = String(n); d.appendChild(k);
+        if (manageable) {
+          const acts = document.createElement('span'); acts.className = 'cat-actions';
+          const ren = document.createElement('button'); ren.className = 'cat-act'; ren.textContent = '✎'; ren.title = 'Rename category';
+          ren.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openModal('Rename category “' + label + '”', label, function (v) { vscode.postMessage({ type: 'renameCategory', old: label, label: v }); });
+          });
+          const del = document.createElement('button'); del.className = 'cat-act'; del.textContent = '🗑'; del.title = 'Delete category (its skills become Uncategorized)';
+          del.addEventListener('click', (e) => {
+            e.stopPropagation();
+            vscode.postMessage({ type: 'deleteCategory', label: label });
+          });
+          acts.appendChild(ren); acts.appendChild(del); d.appendChild(acts);
+        }
         d.addEventListener('click', () => { activeCat = id; view = 'list'; renderNav(); renderMain(); });
         navEl.appendChild(d);
       };
-      mk('__all__', 'All Skills', state.skills.length);
-      for (const cat of state.categories) mk(cat, cat, c.get(cat) || 0);
+      mk('__all__', 'All Skills', state.skills.length, false);
+      for (const cat of state.categories) mk(cat, cat, c.get(cat) || 0, cat !== 'Uncategorized');
     }
     function visible() {
       return state.skills.filter((s) => {
@@ -353,29 +373,31 @@ ${markdownClientSource()}
       }
     });
 
-    // ── In-panel "new category" modal (keeps focus inside the webview) ────────────
+    // ── In-panel text modal (new category / rename), keeps focus in the webview ────
     const modal = document.getElementById('modal');
     const modalInput = document.getElementById('modal-input');
     const modalTitle = document.getElementById('modal-title');
-    let modalSkill = null;
-    function openNewCategoryModal(name) {
-      modalSkill = name;
-      modalInput.value = '';
-      modalTitle.textContent = 'New category for "' + name + '"';
+    let modalSubmit = null;
+    function openModal(title, value, onSubmit) {
+      modalTitle.textContent = title;
+      modalInput.value = value || '';
+      modalSubmit = onSubmit;
       modal.hidden = false;
-      modalInput.focus();
+      modalInput.focus(); modalInput.select();
     }
-    function closeModal() { modal.hidden = true; modalSkill = null; }
-    function addCategory() {
+    function openNewCategoryModal(name) {
+      openModal('New category for “' + name + '”', '', function (v) { vscode.postMessage({ type: 'setCategory', name: name, label: v }); });
+    }
+    function closeModal() { modal.hidden = true; modalSubmit = null; }
+    function submitModal() {
       const v = modalInput.value.trim();
       if (!v) { modalInput.focus(); return; }
-      vscode.postMessage({ type: 'setCategory', name: modalSkill, label: v });
-      closeModal();
+      const fn = modalSubmit; closeModal(); if (fn) fn(v);
     }
-    document.getElementById('modal-add').addEventListener('click', addCategory);
+    document.getElementById('modal-add').addEventListener('click', submitModal);
     document.getElementById('modal-cancel').addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-    modalInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addCategory(); else if (e.key === 'Escape') closeModal(); });
+    modalInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitModal(); else if (e.key === 'Escape') closeModal(); });
 
     function renderAll() { renderProj(); renderNav(); renderMain(); }
     renderAll();
@@ -450,6 +472,17 @@ async function openWebviewPalette(vscode, deps) {
         // The webview collects new-category text via an in-panel modal, so the host
         // no longer needs an InputBox here.
         manifest.setCategory(hubRoot, msg.name, msg.label || '');
+        await pushState();
+        return;
+      }
+      if (msg.type === 'renameCategory') {
+        manifest.renameCategory(hubRoot, msg.old, msg.label || '');
+        await pushState();
+        return;
+      }
+      if (msg.type === 'deleteCategory') {
+        manifest.deleteCategory(hubRoot, msg.label);
+        vscode.window.showInformationMessage(`Deleted category "${msg.label}" — its skills are now Uncategorized.`);
         await pushState();
         return;
       }

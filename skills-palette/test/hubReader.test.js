@@ -60,6 +60,26 @@ const fs = require('fs'), os = require('os'), path = require('path');
   fs.rmSync(root, { recursive: true, force: true });
 })().catch((e) => { console.error(e); process.exit(1); });
 
+// ── Integration: deleting a category returns its skills to Uncategorized ───────
+// End-to-end proof (manifest write + scan) of the safe-delete guarantee.
+const man = require('../src/categoriesManifest.js');
+(async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-del-'));
+  for (const n of ['one', 'two']) {
+    fs.mkdirSync(path.join(root, n));
+    fs.writeFileSync(path.join(root, n, 'SKILL.md'), `---\nname: ${n}\ndescription: d. Triggers on x.\n---\n# ${n}\n`);
+  }
+  man.setCategory(root, 'one', 'Group X');
+  let r = await hub.scan({ hubRoot: root });
+  ok(r.skills.find((s) => s.name === 'one').category === 'Group X', 'skill mapped to its category');
+
+  man.deleteCategory(root, 'Group X');
+  r = await hub.scan({ hubRoot: root });
+  ok(r.skills.find((s) => s.name === 'one').category === hub.UNCATEGORIZED, 'after deleting the category, its skill is Uncategorized (not lost)');
+  ok(r.skills.length === 2, 'both skills still present after delete');
+  fs.rmSync(root, { recursive: true, force: true });
+})().catch((e) => { console.error(e); process.exit(1); });
+
 // ── Integration: real hub scan over all skills ─────────────────────────────────
 (async () => {
   const { skills, warnings } = await hub.scan();

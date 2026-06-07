@@ -44,6 +44,32 @@ m = man.read(root);
 ok(!m.categories.find((c) => c.label === 'Productivity'), 'empty category pruned after removal');
 ok(man.setCategory(root, 'linkedin-post', 'Uncategorized') && !man.read(root).categories.find((c) => c.skills.includes('linkedin-post')), '"Uncategorized" removes membership');
 
+// ── Rename a category ──────────────────────────────────────────────────────────
+man.setCategory(root, 'a', 'Temp Cat');
+man.setCategory(root, 'b', 'Temp Cat');
+man.renameCategory(root, 'Temp Cat', 'Renamed Cat');
+let mr = man.read(root);
+ok(!mr.categories.find((c) => c.label === 'Temp Cat'), 'rename: old label gone');
+const rc = mr.categories.find((c) => c.label === 'Renamed Cat');
+ok(rc && rc.skills.includes('a') && rc.skills.includes('b'), 'rename: skills preserved under new label');
+ok(rc.id === 'renamed-cat', 'rename: id re-slugged');
+
+// Rename onto an existing label → merge.
+man.setCategory(root, 'c', 'Other Cat');
+man.renameCategory(root, 'Other Cat', 'Renamed Cat');
+mr = man.read(root);
+ok(mr.categories.filter((c) => c.label === 'Renamed Cat').length === 1, 'rename-merge: single category');
+ok(mr.categories.find((c) => c.label === 'Renamed Cat').skills.includes('c'), 'rename-merge: skill carried over');
+ok(!mr.categories.find((c) => c.label === 'Other Cat'), 'rename-merge: source category removed');
+
+// ── Delete a category that HAS skills → skills return to Uncategorized ──────────
+// (guarantee the user asked for: a non-empty category never DELETES its skills.)
+man.deleteCategory(root, 'Renamed Cat');
+mr = man.read(root);
+ok(!mr.categories.find((c) => c.label === 'Renamed Cat'), 'delete: category removed');
+ok(!mr.categories.some((c) => ['a', 'b', 'c'].some((s) => c.skills.includes(s))),
+   'delete: every skill of the deleted category is un-mapped (→ Uncategorized), not lost');
+
 // Tolerant read of garbage.
 fs.writeFileSync(file, '{ not json ');
 ok(man.read(root).categories.length === 0, 'garbage manifest → empty');
