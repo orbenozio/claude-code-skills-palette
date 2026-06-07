@@ -82,8 +82,8 @@ function renderHtml(state, theNonce, cspSource) {
   .cat:hover { background: var(--vscode-list-hoverBackground); }
   .cat.active { background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
   .cat .count { opacity: .6; font-variant-numeric: tabular-nums; }
-  main { overflow-y: auto; padding: var(--gap); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); align-content: start; }
+  main { overflow-y: auto; padding: 0 var(--gap) var(--gap); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); align-content: start; padding-top: var(--gap); }
   .card { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); border-radius: 8px; background: var(--vscode-editorWidget-background); }
   .card.linked { border-color: var(--vscode-charts-green, #4caf50); }
   .card .top { display: flex; align-items: center; gap: 6px; }
@@ -106,7 +106,7 @@ function renderHtml(state, theNonce, cspSource) {
   .empty { opacity: .6; padding: 20px; }
   /* README preview */
   .preview { max-width: 820px; }
-  .preview .bar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .preview .bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: var(--gap) 0 8px; margin-bottom: 6px; background: var(--vscode-editor-background); border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); }
   .readme h1,.readme h2,.readme h3,.readme h4 { line-height: 1.25; margin: 1em 0 .4em; }
   .readme h1 { font-size: 1.5em; border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); padding-bottom: .2em; }
   .readme h2 { font-size: 1.25em; }
@@ -116,6 +116,14 @@ function renderHtml(state, theNonce, cspSource) {
   .readme a { color: var(--vscode-textLink-foreground); }
   .readme ul { padding-left: 1.4em; }
   .readme blockquote { border-left: 3px solid var(--vscode-widget-border, rgba(128,128,128,.3)); margin: .6em 0; padding: .2em .8em; opacity: .85; }
+  /* In-panel modal (new category) */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .modal-backdrop[hidden] { display: none; }
+  .modal { width: 340px; max-width: 90%; display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 8px; background: var(--vscode-editorWidget-background); border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); box-shadow: 0 8px 30px rgba(0,0,0,.45); }
+  .modal h2 { margin: 0; font-size: 13px; font-weight: 600; }
+  .modal input { padding: 6px 8px; color: var(--vscode-input-foreground); background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); border-radius: 4px; }
+  .modal input:focus { outline: 1px solid var(--vscode-focusBorder); }
+  .modal .row { display: flex; gap: 8px; justify-content: flex-end; }
 </style>
 </head>
 <body>
@@ -127,6 +135,16 @@ function renderHtml(state, theNonce, cspSource) {
     </header>
     <nav id="nav"></nav>
     <main id="main"></main>
+  </div>
+  <div id="modal" class="modal-backdrop" hidden>
+    <div class="modal">
+      <h2 id="modal-title">New category</h2>
+      <input id="modal-input" type="text" placeholder="e.g. Content &amp; Posts" maxlength="30">
+      <div class="row">
+        <button class="secondary" id="modal-cancel">Cancel</button>
+        <button class="primary" id="modal-add">Add</button>
+      </div>
+    </div>
   </div>
   <script nonce="${theNonce}">
     const vscode = acquireVsCodeApi();
@@ -188,7 +206,7 @@ function renderHtml(state, theNonce, cspSource) {
       add('__new__', '+ New category…', false);
       sel.addEventListener('change', () => {
         const v = sel.value;
-        if (v === '__new__') { vscode.postMessage({ type: 'newCategory', name: skill.name }); sel.value = isUncat ? '__uncat__' : cur; }
+        if (v === '__new__') { openNewCategoryModal(skill.name); sel.value = isUncat ? '__uncat__' : cur; }
         else if (v === '__uncat__') vscode.postMessage({ type: 'setCategory', name: skill.name, label: '' });
         else vscode.postMessage({ type: 'setCategory', name: skill.name, label: v });
       });
@@ -302,6 +320,30 @@ function renderHtml(state, theNonce, cspSource) {
         view = 'preview'; renderMain();
       }
     });
+
+    // ── In-panel "new category" modal (keeps focus inside the webview) ────────────
+    const modal = document.getElementById('modal');
+    const modalInput = document.getElementById('modal-input');
+    const modalTitle = document.getElementById('modal-title');
+    let modalSkill = null;
+    function openNewCategoryModal(name) {
+      modalSkill = name;
+      modalInput.value = '';
+      modalTitle.textContent = 'New category for "' + name + '"';
+      modal.hidden = false;
+      modalInput.focus();
+    }
+    function closeModal() { modal.hidden = true; modalSkill = null; }
+    function addCategory() {
+      const v = modalInput.value.trim();
+      if (!v) { modalInput.focus(); return; }
+      vscode.postMessage({ type: 'setCategory', name: modalSkill, label: v });
+      closeModal();
+    }
+    document.getElementById('modal-add').addEventListener('click', addCategory);
+    document.getElementById('modal-cancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+    modalInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addCategory(); else if (e.key === 'Escape') closeModal(); });
 
     function renderAll() { renderProj(); renderNav(); renderMain(); }
     renderAll();
