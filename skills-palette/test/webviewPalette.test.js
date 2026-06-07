@@ -40,4 +40,15 @@ ok(embeddedRaw.includes('add-idea') && embeddedRaw.includes('Release & Shipping'
 const n = wp.nonce();
 ok(/^[A-Za-z0-9]{32}$/.test(n), 'nonce() is 32 alphanumerics');
 
+// The embedded client script must be syntactically valid JS (new Function parses
+// without running). Catches escaping bugs in the regex-heavy markdown renderer.
+const scriptMatch = html.match(new RegExp('<script nonce="' + N + '">([\\s\\S]*?)<\\/script>'));
+ok(!!scriptMatch, 'found the embedded script');
+let parsed = true;
+try { new Function(scriptMatch[1]); } catch (e) { parsed = false; console.error('client script parse error:', e.message); }
+ok(parsed, 'embedded client script parses as valid JS');
+ok(scriptMatch[1].includes('function mdToHtml'), 'markdown renderer present');
+ok(scriptMatch[1].includes('function categorySelect'), 'category selector present');
+ok(scriptMatch[1].includes("coveredByGlobal"), 'global-covers-project logic present');
+
 console.log(`✅ webviewPalette render: ${passed} assertions passed`);

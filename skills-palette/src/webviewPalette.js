@@ -3,12 +3,13 @@
 /**
  * The rich Skills Palette as a Webview panel — chosen over QuickPick once the skill
  * count grows, because a Webview supports INTERACTIVE category filtering (a clickable
- * sidebar that shows only one category), real scrolling, theme colors, and card
- * layout. QuickPick separators can only label groups inside one flat list.
+ * sidebar), real scrolling, theme colors, card layout, in-panel README preview, and
+ * category assignment.
  *
- * Host side owns all fs/link logic; the webview only renders state and posts intents
- * back over the message bridge. User text is rendered via textContent in the client
- * script (never innerHTML), so no HTML-injection surface.
+ * Host owns all fs/link/manifest work; the webview renders state and posts intents.
+ * User text in cards is rendered via textContent (never innerHTML). The README
+ * preview renders Markdown to HTML, but escapes the source first and only emits a
+ * known tag set, so file content can't inject executable markup.
  */
 
 const os = require('os');
@@ -16,9 +17,11 @@ const path = require('path');
 
 const hubReader = require('./hubReader');
 const linker = require('./linker');
+const manifest = require('./categoriesManifest');
 
 function projectSkillsDir(folderFsPath) { return path.join(folderFsPath, '.claude', 'skills'); }
 function globalSkillsDir() { return path.join(os.homedir(), '.claude', 'skills'); }
+function hubRootOf(deps) { return deps.hubRoot || hubReader.DEFAULT_HUB; }
 
 function nonce() {
   let s = '';
@@ -79,16 +82,20 @@ function renderHtml(state, theNonce, cspSource) {
   .cat:hover { background: var(--vscode-list-hoverBackground); }
   .cat.active { background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
   .cat .count { opacity: .6; font-variant-numeric: tabular-nums; }
-  main { overflow-y: auto; padding: var(--gap); display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); align-content: start; }
+  main { overflow-y: auto; padding: var(--gap); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); align-content: start; }
   .card { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); border-radius: 8px; background: var(--vscode-editorWidget-background); }
   .card.linked { border-color: var(--vscode-charts-green, #4caf50); }
   .card .top { display: flex; align-items: center; gap: 6px; }
-  .card .title { font-weight: 600; font-size: 13px; flex: 1; }
+  .card .title { font-weight: 600; font-size: 13px; flex: 1; cursor: pointer; }
+  .card .title:hover { text-decoration: underline; }
   .badge { font-size: 10px; padding: 1px 6px; border-radius: 10px; white-space: nowrap; }
   .badge.proj { background: color-mix(in srgb, var(--vscode-charts-green, #4caf50) 25%, transparent); color: var(--vscode-charts-green, #4caf50); }
   .badge.glob { background: color-mix(in srgb, var(--vscode-charts-blue, #4aa3ff) 25%, transparent); color: var(--vscode-charts-blue, #4aa3ff); }
   .badge.broken { background: color-mix(in srgb, var(--vscode-charts-yellow, #e6c000) 30%, transparent); color: var(--vscode-charts-yellow, #e6c000); }
-  .card .summary { font-size: 12px; opacity: .75; line-height: 1.35; flex: 1; }
+  .card .summary { font-size: 12px; opacity: .75; line-height: 1.35; flex: 1; cursor: pointer; }
+  .card .catrow { display: flex; align-items: center; gap: 6px; font-size: 11px; opacity: .85; }
+  select { font-family: inherit; font-size: 11px; padding: 2px 4px; color: var(--vscode-dropdown-foreground); background: var(--vscode-dropdown-background); border: 1px solid var(--vscode-dropdown-border, transparent); border-radius: 4px; max-width: 100%; }
   .card .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   button { font-family: inherit; font-size: 12px; padding: 4px 9px; border: none; border-radius: 4px; cursor: pointer; }
   button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
@@ -96,7 +103,19 @@ function renderHtml(state, theNonce, cspSource) {
   button.secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
   button.secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
   button:disabled { opacity: .45; cursor: default; }
-  .empty { opacity: .6; padding: 20px; grid-column: 1 / -1; }
+  .empty { opacity: .6; padding: 20px; }
+  /* README preview */
+  .preview { max-width: 820px; }
+  .preview .bar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .readme h1,.readme h2,.readme h3,.readme h4 { line-height: 1.25; margin: 1em 0 .4em; }
+  .readme h1 { font-size: 1.5em; border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); padding-bottom: .2em; }
+  .readme h2 { font-size: 1.25em; }
+  .readme code { background: var(--vscode-textCodeBlock-background, rgba(128,128,128,.15)); padding: .1em .35em; border-radius: 4px; font-family: var(--vscode-editor-font-family, monospace); font-size: .9em; }
+  .readme pre { background: var(--vscode-textCodeBlock-background, rgba(128,128,128,.15)); padding: 10px 12px; border-radius: 6px; overflow-x: auto; }
+  .readme pre code { background: none; padding: 0; }
+  .readme a { color: var(--vscode-textLink-foreground); }
+  .readme ul { padding-left: 1.4em; }
+  .readme blockquote { border-left: 3px solid var(--vscode-widget-border, rgba(128,128,128,.3)); margin: .6em 0; padding: .2em .8em; opacity: .85; }
 </style>
 </head>
 <body>
@@ -104,7 +123,7 @@ function renderHtml(state, theNonce, cspSource) {
     <header>
       <h1>Skills Palette</h1>
       <span class="proj" id="proj"></span>
-      <input id="search" type="text" placeholder="Filter skills…" autofocus>
+      <input id="search" type="text" placeholder="Filter skills…">
     </header>
     <nav id="nav"></nav>
     <main id="main"></main>
@@ -114,20 +133,21 @@ function renderHtml(state, theNonce, cspSource) {
     let state = ${json};
     let activeCat = '__all__';
     let query = '';
+    let view = 'list';        // 'list' | 'preview'
+    let preview = null;       // { name, title, body }
 
     const navEl = document.getElementById('nav');
     const mainEl = document.getElementById('main');
     const projEl = document.getElementById('proj');
     const searchEl = document.getElementById('search');
 
-    searchEl.addEventListener('input', () => { query = searchEl.value.trim().toLowerCase(); renderMain(); });
+    searchEl.addEventListener('input', () => { query = searchEl.value.trim().toLowerCase(); if (view === 'list') renderMain(); });
 
     function counts() {
       const m = new Map();
       for (const s of state.skills) m.set(s.category, (m.get(s.category) || 0) + 1);
       return m;
     }
-
     function renderNav() {
       const c = counts();
       navEl.textContent = '';
@@ -136,13 +156,12 @@ function renderHtml(state, theNonce, cspSource) {
         d.className = 'cat' + (activeCat === id ? ' active' : '');
         const t = document.createElement('span'); t.textContent = label; d.appendChild(t);
         const k = document.createElement('span'); k.className = 'count'; k.textContent = String(n); d.appendChild(k);
-        d.addEventListener('click', () => { activeCat = id; renderNav(); renderMain(); });
+        d.addEventListener('click', () => { activeCat = id; view = 'list'; renderNav(); renderMain(); });
         navEl.appendChild(d);
       };
       mk('__all__', 'All Skills', state.skills.length);
       for (const cat of state.categories) mk(cat, cat, c.get(cat) || 0);
     }
-
     function visible() {
       return state.skills.filter((s) => {
         if (activeCat !== '__all__' && s.category !== activeCat) return false;
@@ -150,19 +169,36 @@ function renderHtml(state, theNonce, cspSource) {
         return true;
       });
     }
-
     function renderProj() {
-      projEl.textContent = state.hasProject ? ('→ ' + state.targetName) : '(no project open — Enter/Link disabled)';
+      projEl.textContent = state.hasProject ? ('→ ' + state.targetName) : '(no project open — project link disabled)';
     }
-
     function badge(cls, text) { const b = document.createElement('span'); b.className = 'badge ' + cls; b.textContent = text; return b; }
     function btn(cls, text, on, disabled) {
       const b = document.createElement('button'); b.className = cls; b.textContent = text; b.disabled = !!disabled;
       if (!disabled) b.addEventListener('click', on); return b;
     }
 
+    function categorySelect(skill) {
+      const sel = document.createElement('select');
+      const add = (val, label, selected) => { const o = document.createElement('option'); o.value = val; o.textContent = label; if (selected) o.selected = true; sel.appendChild(o); };
+      const cur = skill.category;
+      const isUncat = !cur || cur === 'Uncategorized';
+      add('__uncat__', 'Uncategorized', isUncat);
+      for (const cat of state.categories) { if (cat === 'Uncategorized') continue; add(cat, cat, cat === cur); }
+      add('__new__', '+ New category…', false);
+      sel.addEventListener('change', () => {
+        const v = sel.value;
+        if (v === '__new__') { vscode.postMessage({ type: 'newCategory', name: skill.name }); sel.value = isUncat ? '__uncat__' : cur; }
+        else if (v === '__uncat__') vscode.postMessage({ type: 'setCategory', name: skill.name, label: '' });
+        else vscode.postMessage({ type: 'setCategory', name: skill.name, label: v });
+      });
+      return sel;
+    }
+
     function renderMain() {
       mainEl.textContent = '';
+      if (view === 'preview') return renderPreview();
+      const wrap = document.createElement('div'); wrap.className = 'grid';
       const list = visible();
       if (!list.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'No skills match.'; mainEl.appendChild(e); return; }
       for (const s of list) {
@@ -170,26 +206,101 @@ function renderHtml(state, theNonce, cspSource) {
         const broken = s.proj === 'broken';
         const card = document.createElement('div'); card.className = 'card' + (linked ? ' linked' : '');
         const top = document.createElement('div'); top.className = 'top';
-        const title = document.createElement('span'); title.className = 'title'; title.textContent = s.title; top.appendChild(title);
+        const title = document.createElement('span'); title.className = 'title'; title.textContent = s.title;
+        title.title = 'Open README preview';
+        title.addEventListener('click', () => vscode.postMessage({ type: 'preview', name: s.name }));
+        top.appendChild(title);
+        const coveredByGlobal = s.glob === 'linked' && !linked;
         if (linked) top.appendChild(badge('proj', '✓ linked'));
         else if (broken) top.appendChild(badge('broken', 'broken'));
-        if (s.glob === 'linked') top.appendChild(badge('glob', 'global'));
+        if (s.glob === 'linked') {
+          const gb = badge('glob', coveredByGlobal ? 'global · active here' : 'global');
+          gb.title = 'Linked globally — available in every project automatically';
+          top.appendChild(gb);
+        }
         card.appendChild(top);
-        const sum = document.createElement('div'); sum.className = 'summary'; sum.textContent = s.summary; card.appendChild(sum);
+        const sum = document.createElement('div'); sum.className = 'summary'; sum.textContent = s.summary;
+        sum.title = 'Open README preview';
+        sum.addEventListener('click', () => vscode.postMessage({ type: 'preview', name: s.name }));
+        card.appendChild(sum);
+        const catrow = document.createElement('div'); catrow.className = 'catrow';
+        const lbl = document.createElement('span'); lbl.textContent = 'Category:'; catrow.appendChild(lbl);
+        catrow.appendChild(categorySelect(s));
+        card.appendChild(catrow);
         const actions = document.createElement('div'); actions.className = 'actions';
-        actions.appendChild(btn('primary', linked ? 'Unlink' : 'Link to project',
-          () => vscode.postMessage({ type: 'toggleProject', name: s.name }), !state.hasProject));
+        // A globally-linked skill is ALREADY available in every project, so linking it
+        // per-project is redundant — disable that action and explain why.
+        const projDisabled = !state.hasProject || coveredByGlobal;
+        const projBtn = btn('primary', linked ? 'Unlink from project' : 'Link to project',
+          () => vscode.postMessage({ type: 'toggleProject', name: s.name }), projDisabled);
+        if (coveredByGlobal) projBtn.title = 'Already available here via the global link. Unlink global to make it per-project only.';
+        else if (!state.hasProject) projBtn.title = 'Open a project folder first.';
+        actions.appendChild(projBtn);
         actions.appendChild(btn('secondary', s.glob === 'linked' ? 'Unlink global' : 'Link globally',
           () => vscode.postMessage({ type: 'toggleGlobal', name: s.name })));
-        actions.appendChild(btn('secondary', 'Open', () => vscode.postMessage({ type: 'open', name: s.name })));
+        actions.appendChild(btn('secondary', 'Preview', () => vscode.postMessage({ type: 'preview', name: s.name })));
         card.appendChild(actions);
-        mainEl.appendChild(card);
+        wrap.appendChild(card);
       }
+      mainEl.appendChild(wrap);
+    }
+
+    // ── Minimal, SAFE Markdown → HTML (source escaped first; only known tags) ──────
+    function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function inline(t) {
+      t = esc(t);
+      t = t.replace(/\`([^\`]+)\`/g, (_, c) => '<code>' + c + '</code>');
+      t = t.replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>');
+      t = t.replace(/\\*([^*]+)\\*/g, '<em>$1</em>');
+      t = t.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, (_, txt, url) => '<a href="' + esc(url) + '" title="' + esc(url) + '">' + txt + '</a>');
+      return t;
+    }
+    function mdToHtml(md) {
+      const lines = String(md || '').replace(/\\r\\n/g, '\\n').split('\\n');
+      let html = '', inCode = false, inList = false, para = [];
+      const flushPara = () => { if (para.length) { html += '<p>' + inline(para.join(' ')) + '</p>'; para = []; } };
+      const flushList = () => { if (inList) { html += '</ul>'; inList = false; } };
+      for (const line of lines) {
+        if (/^\`\`\`/.test(line)) { if (inCode) { html += '</code></pre>'; inCode = false; } else { flushPara(); flushList(); html += '<pre><code>'; inCode = true; } continue; }
+        if (inCode) { html += esc(line) + '\\n'; continue; }
+        const h = /^(#{1,6})\\s+(.*)$/.exec(line);
+        if (h) { flushPara(); flushList(); const lvl = h[1].length; html += '<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>'; continue; }
+        const q = /^>\\s?(.*)$/.exec(line);
+        if (q) { flushPara(); flushList(); html += '<blockquote>' + inline(q[1]) + '</blockquote>'; continue; }
+        const li = /^\\s*[-*]\\s+(.*)$/.exec(line);
+        if (li) { flushPara(); if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(li[1]) + '</li>'; continue; }
+        if (/^\\s*$/.test(line)) { flushPara(); flushList(); continue; }
+        para.push(line);
+      }
+      if (inCode) html += '</code></pre>';
+      flushPara(); flushList();
+      return html;
+    }
+
+    function renderPreview() {
+      mainEl.textContent = '';
+      const box = document.createElement('div'); box.className = 'preview';
+      const bar = document.createElement('div'); bar.className = 'bar';
+      bar.appendChild(btn('secondary', '← Back', () => { view = 'list'; renderMain(); }));
+      const h = document.createElement('strong'); h.textContent = preview ? preview.title : ''; bar.appendChild(h);
+      box.appendChild(bar);
+      const body = document.createElement('div'); body.className = 'readme';
+      body.innerHTML = preview ? mdToHtml(preview.body) : 'Loading…';
+      box.appendChild(body);
+      mainEl.appendChild(box);
     }
 
     window.addEventListener('message', (e) => {
       const m = e.data;
-      if (m && m.type === 'state') { state = m.state; if (!state.categories.includes(activeCat) && activeCat !== '__all__') activeCat = '__all__'; renderAll(); }
+      if (!m) return;
+      if (m.type === 'state') {
+        state = m.state;
+        if (activeCat !== '__all__' && !state.categories.includes(activeCat)) activeCat = '__all__';
+        renderProj(); renderNav(); if (view === 'list') renderMain();
+      } else if (m.type === 'previewContent') {
+        preview = { name: m.name, title: m.title, body: m.body };
+        view = 'preview'; renderMain();
+      }
     });
 
     function renderAll() { renderProj(); renderNav(); renderMain(); }
@@ -208,6 +319,7 @@ function renderHtml(state, theNonce, cspSource) {
 async function openWebviewPalette(vscode, deps) {
   const output = deps.output || { appendLine() {} };
   const targetFolder = await deps.getTargetFolder();
+  const hubRoot = hubRootOf(deps);
 
   const panel = vscode.window.createWebviewPanel(
     'skillsPalette',
@@ -226,37 +338,55 @@ async function openWebviewPalette(vscode, deps) {
   for (const w of initial.warnings) output.appendLine(`[scan] ${w}`);
   panel.webview.html = renderHtml(initial, nonce(), panel.webview.cspSource);
 
-  function findSkill(name) { return initial.skills.find((s) => s.name === name); }
-
-  async function hubPathOf(name) {
-    // Re-scan lazily to get hubPath (state intentionally omits absolute paths).
+  async function skillFromHub(name) {
     const res = await hubReader.scan(deps.hubRoot ? { hubRoot: deps.hubRoot } : {});
-    const s = res.skills.find((x) => x.name === name);
-    return s ? s.hubPath : null;
+    return res.skills.find((x) => x.name === name) || null;
   }
 
   panel.webview.onDidReceiveMessage(async (msg) => {
     if (!msg || !msg.type) return;
     try {
       if (msg.type === 'ready') return;
-      const hubPath = await hubPathOf(msg.name);
-      if (!hubPath && msg.type !== 'refresh') { output.appendLine(`[webview] unknown skill: ${msg.name}`); return; }
+
+      if (msg.type === 'preview') {
+        const s = await skillFromHub(msg.name);
+        if (!s) return;
+        const text = await require('fs').promises.readFile(path.join(s.hubPath, 'SKILL.md'), 'utf8');
+        const { body } = hubReader.splitFrontmatter(text);
+        panel.webview.postMessage({ type: 'previewContent', name: s.name, title: s.title, body });
+        return;
+      }
+
+      if (msg.type === 'setCategory') {
+        manifest.setCategory(hubRoot, msg.name, msg.label || '');
+        await pushState();
+        return;
+      }
+      if (msg.type === 'newCategory') {
+        const label = await vscode.window.showInputBox({
+          prompt: `New category for "${msg.name}"`,
+          placeHolder: 'e.g. Content & Posts',
+          validateInput: (v) => (v && v.trim().length > 30 ? 'Keep it short (≤ 30 chars).' : null),
+        });
+        if (label && label.trim()) { manifest.setCategory(hubRoot, msg.name, label.trim()); await pushState(); }
+        return;
+      }
+
+      // link actions need the hub path
+      const s = await skillFromHub(msg.name);
+      if (!s) { output.appendLine(`[webview] unknown skill: ${msg.name}`); return; }
 
       if (msg.type === 'toggleProject') {
         if (!targetFolder) { vscode.window.showWarningMessage('Skills Palette: open a project folder first.'); return; }
         const dir = projectSkillsDir(targetFolder.fsPath);
-        const st = linker.linkStatus(path.join(dir, msg.name), hubPath);
-        if (st === 'linked') { linker.unlink(msg.name, hubPath, dir); vscode.window.showInformationMessage(`Unlinked "${msg.name}" from ${targetFolder.name}.`); }
-        else { const r = linker.link(msg.name, hubPath, dir); vscode.window.showInformationMessage(`${r === 'relinked' ? 'Re-linked' : 'Linked'} "${msg.name}" → ${targetFolder.name}.`); }
+        const st = linker.linkStatus(path.join(dir, s.name), s.hubPath);
+        if (st === 'linked') { linker.unlink(s.name, s.hubPath, dir); vscode.window.showInformationMessage(`Unlinked "${s.name}" from ${targetFolder.name}.`); }
+        else { const r = linker.link(s.name, s.hubPath, dir); vscode.window.showInformationMessage(`${r === 'relinked' ? 'Re-linked' : 'Linked'} "${s.name}" → ${targetFolder.name}.`); }
       } else if (msg.type === 'toggleGlobal') {
         const dir = globalSkillsDir();
-        const st = linker.linkStatus(path.join(dir, msg.name), hubPath);
-        if (st === 'linked') { linker.unlink(msg.name, hubPath, dir); vscode.window.showInformationMessage(`Unlinked "${msg.name}" globally.`); }
-        else { linker.link(msg.name, hubPath, dir); vscode.window.showInformationMessage(`Linked "${msg.name}" globally.`); }
-      } else if (msg.type === 'open') {
-        const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(hubPath, 'SKILL.md')));
-        await vscode.window.showTextDocument(doc, { preview: true, viewColumn: vscode.ViewColumn.Beside });
-        return;
+        const st = linker.linkStatus(path.join(dir, s.name), s.hubPath);
+        if (st === 'linked') { linker.unlink(s.name, s.hubPath, dir); vscode.window.showInformationMessage(`Unlinked "${s.name}" globally.`); }
+        else { linker.link(s.name, s.hubPath, dir); vscode.window.showInformationMessage(`Linked "${s.name}" globally.`); }
       }
       await pushState();
     } catch (e) {
