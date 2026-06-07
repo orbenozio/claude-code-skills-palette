@@ -89,14 +89,15 @@ async function openPalette(vscode, deps) {
         const { proj, glob } = statusFor(s);
         const linked = proj === 'linked';
         const broken = proj === 'broken';
-        const marks = [];
-        if (linked) marks.push('$(check) linked');
-        else if (broken) marks.push('$(warning) broken link');
-        if (glob === 'linked') marks.push('$(globe) global');
+        // Compact, single-line item: state shown by leading icons (not words), the
+        // summary as the dimmed same-line description. Keeps a long list scannable.
+        let icons = '';
+        if (linked) icons += '$(check) ';
+        else if (broken) icons += '$(warning) ';
+        if (glob === 'linked') icons += '$(globe) ';
         items.push({
-          label: (linked ? '$(check) ' : '') + s.title,
-          description: marks.join('  ·  '),
-          detail: s.summary,
+          label: icons + s.title,
+          description: s.summary,
           buttons: [linkBtn, globeBtn, openBtn],
           skill: s,
           _proj: proj,
