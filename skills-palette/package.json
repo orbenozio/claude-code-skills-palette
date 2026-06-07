@@ -1,0 +1,66 @@
+{
+  "name": "skills-palette",
+  "displayName": "Skills Palette",
+  "description": "A button in the Claude Code panel that opens a categorized palette of your Skills Hub skills and links any of them into the current project in one click.",
+  "version": "0.1.0",
+  "publisher": "OrBenozio",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/orbenozio/skills-palette.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "keywords": [
+    "claude",
+    "claude code",
+    "skills",
+    "orb-tools"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onUri",
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "skillsPalette.open",
+        "title": "Skills Palette: Open"
+      },
+      {
+        "command": "skillsPalette.checkAndInject",
+        "title": "Skills Palette: Add button to Claude panel (inject)"
+      },
+      {
+        "command": "skillsPalette.removeInjection",
+        "title": "Skills Palette: Remove button from Claude panel"
+      }
+    ],
+    "configuration": {
+      "title": "Skills Palette",
+      "properties": {
+        "skillsPalette.autoInject": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically add the Skills Palette button to the Claude Code panel on startup and re-add it after Claude updates."
+        },
+        "skillsPalette.reinjectCheckHours": {
+          "type": "number",
+          "default": 6,
+          "minimum": 0,
+          "maximum": 48,
+          "description": "How often (hours) to re-check/re-add the button after Claude Code updates (0 = disabled)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node test/injector.test.js && node test/hubReader.test.js && node test/linker.test.js"
+  }
+}

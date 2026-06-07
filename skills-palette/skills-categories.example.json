@@ -1,0 +1,10 @@
+{
+  "_comment": "Copy this file to C:\\Users\\orben\\OneDrive\\DEV\\Agents\\SkillsHub\\skills-categories.json to enable category grouping in the palette. Skills not listed here fall under 'Uncategorized'. Unknown skill ids are ignored.",
+  "version": 1,
+  "categories": [
+    { "id": "content", "label": "Content & Posts", "skills": ["linkedin-post", "add-idea"] },
+    { "id": "release", "label": "Release & Shipping", "skills": ["release-vsix-github", "ship-vscode-extension"] },
+    { "id": "project", "label": "Project Hygiene", "skills": ["update-tasks", "start-diburit"] },
+    { "id": "tooling", "label": "Claude / VSCode Tooling", "skills": ["claude-panel-button"] }
+  ]
+}
