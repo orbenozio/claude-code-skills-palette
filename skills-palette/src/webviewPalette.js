@@ -521,6 +521,8 @@ async function openWebviewPalette(vscode, deps) {
         // The webview collects new-category text via an in-panel modal, so the host
         // no longer needs an InputBox here.
         manifest.setCategory(hubRoot, msg.name, msg.label || '');
+        const to = (msg.label && msg.label.trim()) ? msg.label.trim() : 'Uncategorized';
+        vscode.window.showInformationMessage(`Moved “${msg.name}” → ${to}.`);
         await pushState();
         return;
       }

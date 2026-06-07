@@ -34,17 +34,26 @@ function read(hubRoot) {
   }
 }
 
-/** Atomic write (temp + rename in the same dir). */
+/**
+ * Atomic write (temp + rename in the same dir), hardened for OneDrive: the hub sits
+ * in a synced folder where the file can be briefly locked, making renameSync fail
+ * with EPERM/EBUSY. Retry the rename a few times, then fall back to a direct write so
+ * a transient lock never silently drops the user's change.
+ */
 function write(hubRoot, manifest) {
   const p = manifestPath(hubRoot);
+  const data = JSON.stringify(manifest, null, 2) + '\n';
   const tmp = p + `.tmp-${process.pid}-${Date.now()}`;
-  fs.writeFileSync(tmp, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
-  try {
-    fs.renameSync(tmp, p);
-  } catch (e) {
-    try { fs.unlinkSync(tmp); } catch (_) { /* ignore */ }
-    throw e;
+  fs.writeFileSync(tmp, data, 'utf8');
+  let lastErr;
+  for (let i = 0; i < 5; i++) {
+    try { fs.renameSync(tmp, p); return; }
+    catch (e) { lastErr = e; const until = Date.now() + 40 * (i + 1); while (Date.now() < until) { /* short backoff */ } }
   }
+  // Fallback: overwrite in place (non-atomic) rather than lose the change.
+  try { fs.writeFileSync(p, data, 'utf8'); }
+  finally { try { fs.unlinkSync(tmp); } catch (_) { /* ignore */ } }
+  if (!fs.existsSync(p)) throw lastErr;
 }
 
 /** Kebab id from a human label. */
