@@ -88,6 +88,10 @@ ok(html.includes('id="confirm-modal"'), 'confirm modal markup present');
   ok(script.includes('+ New category'), 'New category is a fixed top item');
   ok(script.includes("type: 'setPinned'"), 'pin/unpin action present');
   ok(script.includes('state.pinned'), 'sidebar groups pinned categories');
+  // View switcher: grid/list toggle, persisted.
+  ok(html.includes('id="view-grid"') && html.includes('id="view-list"'), 'grid/list view switcher present');
+  ok(script.includes("type: 'setView'"), 'view choice is persisted via setView');
+  ok(script.includes('rowitem'), 'list layout class present');
 }
 
 console.log(`✅ webviewPalette render + md security: ${passed} assertions passed`);

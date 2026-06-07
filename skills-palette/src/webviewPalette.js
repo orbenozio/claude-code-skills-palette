@@ -159,8 +159,18 @@ function renderHtml(state, theNonce, cspSource) {
   .cat-add:hover { background: var(--vscode-list-hoverBackground); }
   .nav-sep { height: 1px; margin: 6px 6px; background: var(--vscode-widget-border, rgba(128,128,128,.28)); }
   .cat-act.pin.pinned { opacity: 1; color: var(--vscode-textLink-foreground); }
+  .viewswitch { display: inline-flex; gap: 2px; flex: 0 0 auto; }
+  .vbtn { display: inline-flex; align-items: center; justify-content: center; padding: 4px; background: transparent; border: none; border-radius: 4px; cursor: pointer; color: var(--vscode-foreground); opacity: .55; }
+  .vbtn svg { width: 16px; height: 16px; display: block; }
+  .vbtn:hover { opacity: 1; background: var(--vscode-list-hoverBackground); }
+  .vbtn.active { opacity: 1; background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
   main { overflow-y: auto; padding: 0 var(--gap) var(--gap); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); align-content: start; padding-top: var(--gap); }
+  .list { display: flex; flex-direction: column; gap: 6px; padding-top: var(--gap); }
+  .card.rowitem { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 8px 12px; }
+  .card.rowitem .top { flex: 0 0 auto; max-width: 320px; }
+  .card.rowitem .summary { flex: 1 1 180px; }
+  .card.rowitem .catrow, .card.rowitem .actions { flex: 0 0 auto; }
   .card { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); border-radius: 8px; background: var(--vscode-editorWidget-background); }
   .card.linked { border-color: var(--vscode-charts-green, #4caf50); }
   .card .top { display: flex; align-items: center; gap: 6px; }
@@ -212,6 +222,10 @@ function renderHtml(state, theNonce, cspSource) {
       <h1>Skills Palette</h1>
       <span class="proj" id="proj"></span>
       <input id="search" type="text" placeholder="Filter skills…">
+      <div class="viewswitch">
+        <button class="vbtn" id="view-grid" title="Grid view"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></button>
+        <button class="vbtn" id="view-list" title="List view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+      </div>
     </header>
     <nav id="nav"></nav>
     <main id="main"></main>
@@ -241,7 +255,8 @@ function renderHtml(state, theNonce, cspSource) {
     let state = ${json};
     let activeCat = '__all__';
     let query = '';
-    let view = 'list';        // 'list' | 'preview'
+    let view = 'list';        // main area: 'list' (skills) | 'preview' (readme)
+    let viewMode = state.viewMode === 'list' ? 'list' : 'grid'; // skill layout: 'grid' | 'list'
     let preview = null;       // { name, title, body }
 
     const navEl = document.getElementById('nav');
@@ -250,6 +265,14 @@ function renderHtml(state, theNonce, cspSource) {
     const searchEl = document.getElementById('search');
 
     searchEl.addEventListener('input', () => { query = searchEl.value.trim().toLowerCase(); if (view === 'list') renderMain(); });
+
+    const gridBtn = document.getElementById('view-grid');
+    const listBtn = document.getElementById('view-list');
+    function applyViewButtons() { gridBtn.classList.toggle('active', viewMode === 'grid'); listBtn.classList.toggle('active', viewMode === 'list'); }
+    function setView(v) { viewMode = v; applyViewButtons(); if (view === 'list') renderMain(); vscode.postMessage({ type: 'setView', view: v }); }
+    gridBtn.addEventListener('click', () => setView('grid'));
+    listBtn.addEventListener('click', () => setView('list'));
+    applyViewButtons();
 
     function counts() {
       const m = new Map();
@@ -344,13 +367,13 @@ function renderHtml(state, theNonce, cspSource) {
     function renderMain() {
       mainEl.textContent = '';
       if (view === 'preview') return renderPreview();
-      const wrap = document.createElement('div'); wrap.className = 'grid';
+      const wrap = document.createElement('div'); wrap.className = (viewMode === 'list') ? 'list' : 'grid';
       const list = visible();
       if (!list.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'No skills match.'; mainEl.appendChild(e); return; }
       for (const s of list) {
         const linked = s.proj === 'linked';
         const broken = s.proj === 'broken';
-        const card = document.createElement('div'); card.className = 'card' + (linked ? ' linked' : '');
+        const card = document.createElement('div'); card.className = 'card' + (linked ? ' linked' : '') + (viewMode === 'list' ? ' rowitem' : '');
         const top = document.createElement('div'); top.className = 'top';
         const title = document.createElement('span'); title.className = 'title'; title.textContent = s.title;
         title.title = 'Open README preview';
@@ -520,6 +543,7 @@ async function openWebviewPalette(vscode, deps) {
 
   const initial = await computeState(deps, targetFolder);
   for (const w of initial.warnings) output.appendLine(`[scan] ${w}`);
+  initial.viewMode = deps.viewMode === 'list' ? 'list' : 'grid'; // read once by the client
   panel.webview.html = renderHtml(initial, nonce(), panel.webview.cspSource);
 
   async function skillFromHub(name) {
@@ -531,6 +555,7 @@ async function openWebviewPalette(vscode, deps) {
     if (!msg || !msg.type) return;
     try {
       if (msg.type === 'ready') return;
+      if (msg.type === 'setView') { if (deps.saveView) deps.saveView(msg.view === 'list' ? 'list' : 'grid'); return; }
 
       if (msg.type === 'preview') {
         const s = await skillFromHub(msg.name);
