@@ -112,11 +112,13 @@
     btn.type = 'button';
     btn.title = 'Open Skills Palette — link a skill from your hub to this project';
     btn.setAttribute('aria-label', 'Open Skills Palette');
-    // Inline "checklist" SVG (Material "checklist"), coloured via currentColor so it
-    // renders deterministically (emoji render grey/inconsistently in the webview).
-    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
-      '<path d="M22 7l-1.41-1.41-6.34 6.34 1.41 1.41L22 7zm-3.59-4.18L9.84 11.41 6.41 8l-1.41 1.41' +
-      ' 4.84 4.84 9.99-9.99-1.41-1.44zM2.41 13.41L1 14.82 6.84 20.66l1.41-1.41L2.41 13.41z"/></svg>';
+    // Inline "plug" SVG (stroke via currentColor so it renders deterministically —
+    // emoji render grey/inconsistently in the webview). The plug evokes the core
+    // action: connecting a skill into the project.
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/>' +
+      '<path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>';
     btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
     btn.addEventListener('click', function (e) {
       e.preventDefault();
