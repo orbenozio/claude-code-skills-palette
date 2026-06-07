@@ -38,10 +38,13 @@ m = man.read(root);
 ok(!m.categories.find((c) => c.label === 'Content & Posts').skills.includes('add-idea'), 'moved skill left old category');
 ok(m.categories.find((c) => c.label === 'Productivity').skills.includes('add-idea'), 'moved skill joined new category');
 
-// Set to Uncategorized / '' → removed from all, empty categories pruned.
+// Set to '' / Uncategorized → skill removed from all categories; the now-empty
+// category is KEPT (not auto-pruned — only an explicit delete removes it).
 man.setCategory(root, 'add-idea', '');
 m = man.read(root);
-ok(!m.categories.find((c) => c.label === 'Productivity'), 'empty category pruned after removal');
+const prod = m.categories.find((c) => c.label === 'Productivity');
+ok(prod && prod.skills.length === 0, 'emptied category is kept (not auto-pruned)');
+ok(!m.categories.some((c) => c.skills.includes('add-idea')), 'skill removed from all categories');
 ok(man.setCategory(root, 'linkedin-post', 'Uncategorized') && !man.read(root).categories.find((c) => c.skills.includes('linkedin-post')), '"Uncategorized" removes membership');
 
 // ── Rename a category ──────────────────────────────────────────────────────────

@@ -157,10 +157,11 @@ async function scan(opts = {}) {
 
   skills.sort((a, b) => a.title.localeCompare(b.title));
 
-  // Final category order: manifest order first, then any frontmatter-only categories
-  // (sorted), then Uncategorized last (if used).
+  // Final category order: ALL manifest-declared categories first (even empty ones —
+  // they stay visible/selectable until explicitly deleted), then any frontmatter-only
+  // categories (sorted), then Uncategorized last (if used).
   const used = new Set(skills.map((s) => s.category));
-  const categoryOrder = order.filter((c) => used.has(c));
+  const categoryOrder = order.filter((c) => c !== UNCATEGORIZED);
   for (const c of [...used].sort((a, b) => a.localeCompare(b))) {
     if (c !== UNCATEGORIZED && !categoryOrder.includes(c)) categoryOrder.push(c);
   }

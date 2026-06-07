@@ -145,8 +145,10 @@ function renderHtml(state, theNonce, cspSource) {
   .cat .cat-actions { display: none; gap: 2px; }
   .cat:hover .cat-actions { display: inline-flex; }       /* swap count → actions on hover */
   .cat:hover .count.swap { display: none; }
-  .cat-act { background: transparent; border: none; cursor: pointer; color: inherit; opacity: .7; padding: 0 3px; font-size: 12px; line-height: 1; border-radius: 3px; }
+  .cat-act { display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer; color: inherit; opacity: .65; padding: 2px; border-radius: 3px; }
+  .cat-act svg { width: 14px; height: 14px; display: block; }
   .cat-act:hover { opacity: 1; background: rgba(128,128,128,.28); }
+  .cat-act.del:hover { color: var(--vscode-errorForeground, #e06c75); }
   main { overflow-y: auto; padding: 0 var(--gap) var(--gap); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); align-content: start; padding-top: var(--gap); }
   .card { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); border-radius: 8px; background: var(--vscode-editorWidget-background); }
@@ -254,12 +256,14 @@ function renderHtml(state, theNonce, cspSource) {
         const k = document.createElement('span'); k.className = 'count' + (manageable ? ' swap' : ''); k.textContent = String(n); d.appendChild(k);
         if (manageable) {
           const acts = document.createElement('span'); acts.className = 'cat-actions';
-          const ren = document.createElement('button'); ren.className = 'cat-act'; ren.textContent = '✎'; ren.title = 'Rename category';
+          const PENCIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
+          const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+          const ren = document.createElement('button'); ren.className = 'cat-act'; ren.innerHTML = PENCIL; ren.title = 'Rename category';
           ren.addEventListener('click', (e) => {
             e.stopPropagation();
             openModal('Rename category “' + label + '”', label, function (v) { vscode.postMessage({ type: 'renameCategory', old: label, label: v }); });
           });
-          const del = document.createElement('button'); del.className = 'cat-act'; del.textContent = '🗑'; del.title = 'Delete category (its skills become Uncategorized)';
+          const del = document.createElement('button'); del.className = 'cat-act del'; del.innerHTML = TRASH; del.title = 'Delete category (its skills become Uncategorized)';
           del.addEventListener('click', (e) => {
             e.stopPropagation();
             // Confirm ONLY when the category has skills; an empty one deletes directly.

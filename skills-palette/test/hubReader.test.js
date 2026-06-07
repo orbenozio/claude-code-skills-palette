@@ -80,6 +80,22 @@ const man = require('../src/categoriesManifest.js');
   fs.rmSync(root, { recursive: true, force: true });
 })().catch((e) => { console.error(e); process.exit(1); });
 
+// ── Integration: a declared-but-empty category stays visible (selectable) ──────
+(async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-empty-'));
+  fs.mkdirSync(path.join(root, 'a'));
+  fs.writeFileSync(path.join(root, 'a', 'SKILL.md'), '---\nname: a\ndescription: d. Triggers on x.\n---\n# a\n');
+  fs.writeFileSync(path.join(root, 'skills-categories.json'), JSON.stringify({
+    version: 1,
+    categories: [{ id: 'g', label: 'Group A', skills: ['a'] }, { id: 'e', label: 'Empty Cat', skills: [] }],
+  }));
+  const r = await hub.scan({ hubRoot: root });
+  ok(r.categoryOrder.includes('Empty Cat'), 'declared empty category still appears in categoryOrder');
+  ok(r.categoryOrder.includes('Group A'), 'non-empty category appears too');
+  ok(r.skills.find((s) => s.name === 'a').category === 'Group A', 'mapped skill keeps its category');
+  fs.rmSync(root, { recursive: true, force: true });
+})().catch((e) => { console.error(e); process.exit(1); });
+
 // ── Integration: real hub scan over all skills ─────────────────────────────────
 (async () => {
   const { skills, warnings } = await hub.scan();

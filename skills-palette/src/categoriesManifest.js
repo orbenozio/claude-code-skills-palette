@@ -72,8 +72,8 @@ function setCategory(hubRoot, skillName, label) {
     if (!cat.skills.includes(skillName)) cat.skills.push(skillName);
   }
 
-  // Prune categories with no members (label is recreated on next assignment anyway).
-  m.categories = m.categories.filter((c) => c.skills.length > 0);
+  // NOTE: empty categories are intentionally KEPT — a category that loses its last
+  // skill stays defined (and selectable) until the user explicitly deletes it.
   write(hubRoot, m);
   return m;
 }
@@ -97,8 +97,7 @@ function renameCategory(hubRoot, oldLabel, newLabel) {
     cat.label = clean;
     cat.id = slug(clean);
   }
-  m.categories = m.categories.filter((c) => c.skills.length > 0);
-  write(hubRoot, m);
+  write(hubRoot, m); // empty categories are kept (see setCategory)
   return m;
 }
 
