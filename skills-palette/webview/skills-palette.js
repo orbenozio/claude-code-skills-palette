@@ -42,8 +42,12 @@
   }
 
   function buildUri() {
+    // Carry the button's DESIRED on/off state so the host can reconcile (the host
+    // can't message back into Claude's webview, so the button tells it what it wants).
+    var params = ['on=' + (paletteOn ? '1' : '0')];
     var ws = discoverWorkspace();
-    return ws ? BASE_URI + '?ws=' + encodeURIComponent(ws) : BASE_URI;
+    if (ws) params.push('ws=' + encodeURIComponent(ws));
+    return BASE_URI + '?' + params.join('&');
   }
 
   // Shared toolbar: reuse #orb-tools if present, else create + dock left of Claude's

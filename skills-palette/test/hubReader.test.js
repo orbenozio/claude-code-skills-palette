@@ -119,6 +119,21 @@ const man = require('../src/categoriesManifest.js');
   fs.rmSync(root, { recursive: true, force: true });
 })().catch((e) => { console.error(e); process.exit(1); });
 
+// ── Integration: scan surfaces pinned categories ───────────────────────────────
+(async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-pin-'));
+  fs.mkdirSync(path.join(root, 'a'));
+  fs.writeFileSync(path.join(root, 'a', 'SKILL.md'), '---\nname: a\ndescription: d. Triggers on x.\n---\n# a\n');
+  fs.writeFileSync(path.join(root, 'skills-categories.json'), JSON.stringify({
+    version: 1,
+    categories: [{ id: 'g', label: 'Group A', skills: ['a'], pinned: true }, { id: 'h', label: 'Group B', skills: [] }],
+  }));
+  const r = await hub.scan({ hubRoot: root });
+  ok(r.pinned.includes('Group A'), 'scan surfaces a pinned category');
+  ok(!r.pinned.includes('Group B'), 'an unpinned category is not in pinned');
+  fs.rmSync(root, { recursive: true, force: true });
+})().catch((e) => { console.error(e); process.exit(1); });
+
 // ── Integration: real hub scan over all skills ─────────────────────────────────
 (async () => {
   const { skills, warnings } = await hub.scan();

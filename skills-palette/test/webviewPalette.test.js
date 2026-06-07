@@ -12,6 +12,7 @@ const state = {
   targetName: 'demo',
   hasProject: true,
   categories: ['Content & Posts', 'Release & Shipping'],
+  pinned: ['Release & Shipping'],
   skills: [
     { name: 'add-idea', title: 'Add Idea', summary: 'Log an idea.', category: 'Content & Posts', proj: 'linked', glob: 'absent' },
     // A hostile summary trying to break out of the embedded <script> JSON.
@@ -81,6 +82,12 @@ ok(html.includes('id="confirm-modal"'), 'confirm modal markup present');
   ok(script.includes('Rename category'), 'rename action present in sidebar');
   ok(script.includes('openConfirm'), 'delete routes through a confirm dialog');
   ok(/if \(n > 0\)/.test(script), 'confirm is gated on the category having skills (empty → no confirm)');
+  // Sidebar structure: fixed items, separators, pin action.
+  ok(script.includes('navSep'), 'sidebar renders separators');
+  ok(script.includes("mkCat('Uncategorized'"), 'Uncategorized is a fixed top item');
+  ok(script.includes('+ New category'), 'New category is a fixed top item');
+  ok(script.includes("type: 'setPinned'"), 'pin/unpin action present');
+  ok(script.includes('state.pinned'), 'sidebar groups pinned categories');
 }
 
 console.log(`✅ webviewPalette render + md security: ${passed} assertions passed`);

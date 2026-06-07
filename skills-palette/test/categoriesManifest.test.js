@@ -88,6 +88,19 @@ ok(!mr.categories.find((c) => c.label === 'Renamed Cat'), 'delete: category remo
 ok(!mr.categories.some((c) => ['a', 'b', 'c'].some((s) => c.skills.includes(s))),
    'delete: every skill of the deleted category is un-mapped (→ Uncategorized), not lost');
 
+// ── Pin / unpin ────────────────────────────────────────────────────────────────
+man.setCategory(root, 'p1', 'Pinned Cat');
+man.setPinned(root, 'Pinned Cat', true);
+let mp = man.read(root);
+ok(mp.categories.find((c) => c.label === 'Pinned Cat').pinned === true, 'category is pinned');
+const ser = man.serialize(mp);
+ok(/"pinned": true/.test(ser), 'serialize writes pinned:true');
+ok(!/"pinned": false/.test(ser), 'serialize omits pinned:false (tidy file)');
+man.setPinned(root, 'Pinned Cat', false);
+ok(man.read(root).categories.find((c) => c.label === 'Pinned Cat').pinned === false, 'category unpinned');
+man.setPinned(root, 'No Such Cat', true); // missing → no-op, must not throw
+ok(true, 'setPinned on a missing category is a safe no-op');
+
 // Tolerant read of garbage.
 fs.writeFileSync(file, '{ not json ');
 ok(man.read(root).categories.length === 0, 'garbage manifest → empty');

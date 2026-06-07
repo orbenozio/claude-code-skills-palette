@@ -27,7 +27,7 @@ function read(hubRoot) {
     // Normalize each category shape.
     j.categories = j.categories
       .filter((c) => c && c.label)
-      .map((c) => ({ id: c.id || slug(c.label), label: c.label, skills: Array.isArray(c.skills) ? c.skills.slice() : [] }));
+      .map((c) => ({ id: c.id || slug(c.label), label: c.label, skills: Array.isArray(c.skills) ? c.skills.slice() : [], pinned: !!c.pinned }));
     return j;
   } catch (_) {
     return { version: 1, categories: [] };
@@ -40,9 +40,21 @@ function read(hubRoot) {
  * with EPERM/EBUSY. Retry the rename a few times, then fall back to a direct write so
  * a transient lock never silently drops the user's change.
  */
+/** Serialize cleanly: omit the `pinned` field unless it's true (keeps the file tidy). */
+function serialize(manifest) {
+  return JSON.stringify({
+    version: manifest.version || 1,
+    categories: (manifest.categories || []).map((c) => {
+      const o = { id: c.id, label: c.label, skills: c.skills };
+      if (c.pinned) o.pinned = true;
+      return o;
+    }),
+  }, null, 2) + '\n';
+}
+
 function write(hubRoot, manifest) {
   const p = manifestPath(hubRoot);
-  const data = JSON.stringify(manifest, null, 2) + '\n';
+  const data = serialize(manifest);
   const tmp = p + `.tmp-${process.pid}-${Date.now()}`;
   fs.writeFileSync(tmp, data, 'utf8');
   let lastErr;
@@ -102,6 +114,16 @@ function createCategory(hubRoot, label) {
   return m;
 }
 
+/** Pin/unpin a category (pinned categories are grouped at the top of the sidebar). */
+function setPinned(hubRoot, label, pinned) {
+  const m = read(hubRoot);
+  const cat = m.categories.find((c) => c.label.toLowerCase() === String(label).toLowerCase());
+  if (!cat) return m;
+  cat.pinned = !!pinned;
+  write(hubRoot, m);
+  return m;
+}
+
 /**
  * Rename category `oldLabel` to `newLabel`. If a different category already has the
  * new label, the two are MERGED (skills combined). No-op if oldLabel doesn't exist
@@ -137,4 +159,4 @@ function deleteCategory(hubRoot, label) {
   return m;
 }
 
-module.exports = { MANIFEST_NAME, UNCATEGORIZED, manifestPath, read, write, slug, setCategory, createCategory, renameCategory, deleteCategory };
+module.exports = { MANIFEST_NAME, UNCATEGORIZED, manifestPath, read, write, serialize, slug, setCategory, createCategory, setPinned, renameCategory, deleteCategory };

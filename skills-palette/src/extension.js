@@ -163,10 +163,11 @@ async function resolveTargetFolder(wsPath) {
   return picked ? { fsPath: picked.uri.fsPath, name: picked.name } : null;
 }
 
-function open(context, wsPath) {
+function open(context, wsPath, desiredOn) {
   return openWebviewPalette(vscode, {
     output: output.get(vscode),
     getTargetFolder: () => resolveTargetFolder(wsPath),
+    desiredOn, // true/false from the footer button's lit state; undefined = plain toggle
   });
 }
 
@@ -207,11 +208,15 @@ function activate(context) {
         const cmd = (uri.path || '').replace(/^\/+/, '').replace(/\/+$/, '');
         if (cmd !== 'open') return;
         let wsPath = null;
+        let desiredOn;
         try {
           const params = new URLSearchParams(uri.query || '');
           wsPath = params.get('ws');
+          const on = params.get('on');
+          if (on === '1') desiredOn = true;
+          else if (on === '0') desiredOn = false;
         } catch (_) { /* ignore */ }
-        open(context, wsPath);
+        open(context, wsPath, desiredOn);
       },
     }),
   );

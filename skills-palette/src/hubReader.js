@@ -107,14 +107,16 @@ async function loadCategories(hubRoot) {
     const json = JSON.parse(raw);
     const skillToCategory = new Map();
     const order = [];
+    const pinned = [];
     for (const cat of json.categories || []) {
       if (!cat || !cat.label) continue;
       if (!order.includes(cat.label)) order.push(cat.label);
+      if (cat.pinned) pinned.push(cat.label);
       for (const sk of cat.skills || []) skillToCategory.set(sk, cat.label);
     }
-    return { skillToCategory, order, warning: null };
+    return { skillToCategory, order, pinned, warning: null };
   } catch (e) {
-    return { skillToCategory: new Map(), order: [], warning: `${MANIFEST_NAME}: ${e.message}` };
+    return { skillToCategory: new Map(), order: [], pinned: [], warning: `${MANIFEST_NAME}: ${e.message}` };
   }
 }
 
@@ -132,10 +134,10 @@ async function scan(opts = {}) {
   try {
     entries = await fsp.readdir(hubRoot, { withFileTypes: true });
   } catch (e) {
-    return { skills: [], categoryOrder: [], warnings: [`Cannot read hub "${hubRoot}": ${e.message}`] };
+    return { skills: [], categoryOrder: [], pinned: [], warnings: [`Cannot read hub "${hubRoot}": ${e.message}`] };
   }
 
-  const { skillToCategory, order, warning: catWarn } = await loadCategories(hubRoot);
+  const { skillToCategory, order, pinned, warning: catWarn } = await loadCategories(hubRoot);
   if (catWarn) warnings.push(catWarn);
 
   const skills = [];
@@ -171,7 +173,7 @@ async function scan(opts = {}) {
   }
   if (used.has(UNCATEGORIZED)) categoryOrder.push(UNCATEGORIZED);
 
-  return { skills, categoryOrder, warnings };
+  return { skills, categoryOrder, pinned: pinned || [], warnings };
 }
 
 module.exports = {

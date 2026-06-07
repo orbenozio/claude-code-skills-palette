@@ -99,10 +99,15 @@ async function computeState(deps, targetFolder) {
     proj: projDir ? linker.linkStatus(path.join(projDir, s.name), s.hubPath) : 'absent',
     glob: linker.linkStatus(path.join(globDir, s.name), s.hubPath),
   }));
+  // Real user categories (exclude the fixed "Uncategorized" bucket), sorted A→Z.
+  const real = res.categoryOrder
+    .filter((c) => c !== hubReader.UNCATEGORIZED)
+    .sort((a, b) => a.localeCompare(b));
   return {
     targetName: targetFolder ? targetFolder.name : null,
     hasProject: !!targetFolder,
-    categories: res.categoryOrder,
+    categories: real,
+    pinned: (res.pinned || []).filter((p) => real.includes(p)),
     skills,
     warnings: res.warnings,
   };
@@ -149,8 +154,11 @@ function renderHtml(state, theNonce, cspSource) {
   .cat-act svg { width: 14px; height: 14px; display: block; }
   .cat-act:hover { opacity: 1; background: rgba(128,128,128,.28); }
   .cat-act.del:hover { color: var(--vscode-errorForeground, #e06c75); }
-  .cat-add { opacity: .65; font-style: italic; margin-top: 4px; }
-  .cat-add:hover { opacity: 1; background: var(--vscode-list-hoverBackground); }
+  .cat-add { opacity: .8; }
+  .cat-add .cat-name { color: var(--vscode-textLink-foreground); }
+  .cat-add:hover { background: var(--vscode-list-hoverBackground); }
+  .nav-sep { height: 1px; margin: 6px 6px; background: var(--vscode-widget-border, rgba(128,128,128,.28)); }
+  .cat-act.pin.pinned { opacity: 1; color: var(--vscode-textLink-foreground); }
   main { overflow-y: auto; padding: 0 var(--gap) var(--gap); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); align-content: start; padding-top: var(--gap); }
   .card { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); border-radius: 8px; background: var(--vscode-editorWidget-background); }
@@ -248,49 +256,57 @@ function renderHtml(state, theNonce, cspSource) {
       for (const s of state.skills) m.set(s.category, (m.get(s.category) || 0) + 1);
       return m;
     }
+    var PENCIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
+    var TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+    var PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+
+    function navSep() { const s = document.createElement('div'); s.className = 'nav-sep'; navEl.appendChild(s); }
+
+    function mkCat(id, label, n, opts) {
+      opts = opts || {};
+      const d = document.createElement('div');
+      d.className = 'cat' + (activeCat === id ? ' active' : '');
+      const t = document.createElement('span'); t.className = 'cat-name'; t.textContent = label; d.appendChild(t);
+      const k = document.createElement('span'); k.className = 'count' + (opts.manageable ? ' swap' : ''); k.textContent = String(n); d.appendChild(k);
+      if (opts.manageable) {
+        const acts = document.createElement('span'); acts.className = 'cat-actions';
+        const pin = document.createElement('button'); pin.className = 'cat-act pin' + (opts.pinned ? ' pinned' : ''); pin.innerHTML = PIN;
+        pin.title = opts.pinned ? 'Unpin' : 'Pin to top';
+        pin.addEventListener('click', (e) => { e.stopPropagation(); vscode.postMessage({ type: 'setPinned', label: label, pinned: !opts.pinned }); });
+        const ren = document.createElement('button'); ren.className = 'cat-act'; ren.innerHTML = PENCIL; ren.title = 'Rename category';
+        ren.addEventListener('click', (e) => { e.stopPropagation(); openModal('Rename category “' + label + '”', label, function (v) { vscode.postMessage({ type: 'renameCategory', old: label, label: v }); }); });
+        const del = document.createElement('button'); del.className = 'cat-act del'; del.innerHTML = TRASH; del.title = 'Delete category (its skills become Uncategorized)';
+        del.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (n > 0) openConfirm('Delete category “' + label + '”? Its ' + n + ' skill' + (n === 1 ? '' : 's') + ' will become Uncategorized.', function () { vscode.postMessage({ type: 'deleteCategory', label: label }); });
+          else vscode.postMessage({ type: 'deleteCategory', label: label });
+        });
+        acts.appendChild(pin); acts.appendChild(ren); acts.appendChild(del); d.appendChild(acts);
+      }
+      d.addEventListener('click', () => { activeCat = id; view = 'list'; renderNav(); renderMain(); });
+      navEl.appendChild(d);
+    }
+
     function renderNav() {
       const c = counts();
       navEl.textContent = '';
-      const mk = (id, label, n, manageable) => {
-        const d = document.createElement('div');
-        d.className = 'cat' + (activeCat === id ? ' active' : '');
-        const t = document.createElement('span'); t.className = 'cat-name'; t.textContent = label; d.appendChild(t);
-        const k = document.createElement('span'); k.className = 'count' + (manageable ? ' swap' : ''); k.textContent = String(n); d.appendChild(k);
-        if (manageable) {
-          const acts = document.createElement('span'); acts.className = 'cat-actions';
-          const PENCIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
-          const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
-          const ren = document.createElement('button'); ren.className = 'cat-act'; ren.innerHTML = PENCIL; ren.title = 'Rename category';
-          ren.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openModal('Rename category “' + label + '”', label, function (v) { vscode.postMessage({ type: 'renameCategory', old: label, label: v }); });
-          });
-          const del = document.createElement('button'); del.className = 'cat-act del'; del.innerHTML = TRASH; del.title = 'Delete category (its skills become Uncategorized)';
-          del.addEventListener('click', (e) => {
-            e.stopPropagation();
-            // Confirm ONLY when the category has skills; an empty one deletes directly.
-            if (n > 0) {
-              openConfirm('Delete category “' + label + '”? Its ' + n + ' skill' + (n === 1 ? '' : 's') + ' will become Uncategorized.',
-                function () { vscode.postMessage({ type: 'deleteCategory', label: label }); });
-            } else {
-              vscode.postMessage({ type: 'deleteCategory', label: label });
-            }
-          });
-          acts.appendChild(ren); acts.appendChild(del); d.appendChild(acts);
-        }
-        d.addEventListener('click', () => { activeCat = id; view = 'list'; renderNav(); renderMain(); });
-        navEl.appendChild(d);
-      };
-      mk('__all__', 'All Skills', state.skills.length, false);
-      for (const cat of state.categories) mk(cat, cat, c.get(cat) || 0, cat !== 'Uncategorized');
-      // "+ New category" — create an empty category straight from the sidebar.
-      const addRow = document.createElement('div');
-      addRow.className = 'cat cat-add';
+      // Fixed top items, always present.
+      mkCat('__all__', 'All Skills', state.skills.length, {});
+      mkCat('Uncategorized', 'Uncategorized', c.get('Uncategorized') || 0, {});
+      const addRow = document.createElement('div'); addRow.className = 'cat cat-add';
       const at = document.createElement('span'); at.className = 'cat-name'; at.textContent = '+ New category'; addRow.appendChild(at);
-      addRow.addEventListener('click', () => {
-        openModal('New category', '', function (v) { vscode.postMessage({ type: 'createCategory', label: v }); });
-      });
+      addRow.addEventListener('click', () => openModal('New category', '', function (v) { vscode.postMessage({ type: 'createCategory', label: v }); }));
       navEl.appendChild(addRow);
+
+      // state.categories is already A→Z; split into pinned and the rest (order kept).
+      const pinned = state.categories.filter((x) => state.pinned.indexOf(x) >= 0);
+      const rest = state.categories.filter((x) => state.pinned.indexOf(x) < 0);
+      if (state.categories.length) {
+        navSep();
+        for (const cat of pinned) mkCat(cat, cat, c.get(cat) || 0, { manageable: true, pinned: true });
+        if (pinned.length && rest.length) navSep();
+        for (const cat of rest) mkCat(cat, cat, c.get(cat) || 0, { manageable: true, pinned: false });
+      }
     }
     function visible() {
       return state.skills.filter((s) => {
@@ -398,7 +414,7 @@ ${markdownClientSource()}
       if (!m) return;
       if (m.type === 'state') {
         state = m.state;
-        if (activeCat !== '__all__' && !state.categories.includes(activeCat)) activeCat = '__all__';
+        if (activeCat !== '__all__' && activeCat !== 'Uncategorized' && !state.categories.includes(activeCat)) activeCat = '__all__';
         renderProj(); renderNav(); if (view === 'list') renderMain();
       } else if (m.type === 'previewContent') {
         preview = { name: m.name, title: m.title, body: m.body };
@@ -462,11 +478,20 @@ ${markdownClientSource()}
  * @param {object} deps  { output, getTargetFolder, hubRoot? }
  */
 async function openWebviewPalette(vscode, deps) {
-  // Strict toggle: if the palette is open, close it; otherwise create it. Strict
-  // (rather than "reveal if backgrounded") keeps it in lockstep with the footer
-  // button's optimistic lit state — every click flips the panel. Checked
-  // synchronously, before any await, so rapid clicks can't open two panels.
-  if (activePanel) { activePanel.dispose(); return; }
+  // Reconcile to the footer button's DESIRED state (deps.desiredOn) when provided,
+  // otherwise plain toggle (status-bar/command path). The button tracks its own lit
+  // state and tells us what it wants; making reality match that avoids the inversion
+  // that independent toggling caused when the user closed the palette via its tab.
+  //   desiredOn === true  → ensure open  (reveal if already open)
+  //   desiredOn === false → ensure closed (no-op if already closed → clears stale lit)
+  //   desiredOn undefined → toggle
+  const desiredOn = deps.desiredOn;
+  if (activePanel) {
+    if (desiredOn === true) { activePanel.reveal(); return; }
+    activePanel.dispose();
+    return;
+  }
+  if (desiredOn === false) return; // wants closed and already is
   if (opening) return; // a create is already in flight (e.g. awaiting a folder pick)
   opening = true;
 
@@ -528,6 +553,16 @@ async function openWebviewPalette(vscode, deps) {
       }
       if (msg.type === 'createCategory') {
         manifest.createCategory(hubRoot, msg.label || '');
+        await pushState();
+        return;
+      }
+      if (msg.type === 'setPinned') {
+        manifest.setPinned(hubRoot, msg.label, !!msg.pinned);
+        await pushState();
+        return;
+      }
+      if (msg.type === 'setPinned') {
+        manifest.setPinned(hubRoot, msg.label, !!msg.pinned);
         await pushState();
         return;
       }
