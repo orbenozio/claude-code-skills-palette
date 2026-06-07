@@ -17,3 +17,6 @@ temp/
 
 # Standalone demo/presentation deck — not part of the skills-palette project
 demo/
+
+# Packaged VSIX build artifacts
+*.vsix

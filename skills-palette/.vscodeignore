@@ -1,0 +1,9 @@
+# Exclude dev-only files from the packaged .vsix
+test/**
+design/**
+.timelog/**
+.gitignore
+.vscodeignore
+skills-categories.example.json
+**/*.vsix
+.git/**
