@@ -4,6 +4,14 @@
 
 האיפיון המלא: [../SPEC.md](../SPEC.md).
 
+## התקנה (תמיד הגרסה האחרונה)
+
+הורד את ה-VSIX האחרון מהקישור הקבוע:
+
+https://github.com/orbenozio/skills-palette/releases/latest/download/skills-palette.vsix
+
+ואז ב-VSCode: **Extensions → ⋯ → Install from VSIX…** → בחר את הקובץ → Reload. (התקנת VSIX לא מתעדכנת אוטומטית — שדרוג = הורדה והתקנה מחדש.)
+
 ## איך זה עובד
 
 הפאנל של Claude הוא webview ב-sandbox שאי אפשר להריץ בו תהליכים. לכן:

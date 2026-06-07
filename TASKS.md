@@ -17,11 +17,13 @@
 - [ ] fallback: `Skills Palette: Open (QuickPick)` + פריט status-bar
 
 ### Phase 5 — ליטוש והפצה
+- [x] `icon.png` לתוסף + שדה `icon` ב-package.json (אייקון תקע)
+- [x] אריזת VSIX + GitHub Release ציבורי (`orbenozio/skills-palette`, tag `v0.1.0`) עם asset בשם קבוע `skills-palette.vsix` — קישור always-latest פעיל
 - [ ] `FileSystemWatcher` על ה-hub לרענון Webview פתוח כשמשתנים סקילים/manifest
-- [ ] `icon.png` לתוסף + שדה `icon` ב-package.json
-- [ ] אריזת VSIX + GitHub Release (סקיל `release-vsix-github`) עם asset בשם יציב ל-install-link
 - [ ] להחליט על labels סופיים לקטגוריות / האם להציב manifest התחלתי ב-hub
 - [ ] (אופציונלי) `defaultScope: global` במניפסט לסקילים מערכתיים (שאלה פתוחה ב-SPEC §11)
+
+> שדרוג עתידי: bump גרסה → `vsce package` → `gh release create vX.Y.Z` → **חובה להעלות מחדש את `skills-palette.vsix` בשם הקבוע** (`gh release upload ... --clobber`) אחרת ה-latest-link נשבר. (סקיל `release-vsix-github`.)
 
 ### חוב טכני / בדיקות
 - [ ] unit test ל-`resolveTargetFolder` (לוגיקת `?ws=` / focused-window) עם mock ל-vscode
