@@ -38,6 +38,15 @@ ok(hub.deriveTitle('no heading here', 'release-vsix-github') === 'Release Vsix G
   ok(meta.description === 'Hello world', 'parsed + unquoted description');
   ok(/# Foo Bar/.test(body), 'body separated from frontmatter');
 }
+{
+  // NESTED metadata keys must NOT be flattened to top-level (the "stuck in recipe" bug:
+  // a skill's metadata.openclaw.category was overriding the palette manifest).
+  const fm = 'name: x\ndescription: d\nmetadata:\n  openclaw:\n    category: "recipe"\n    summary: "nested"';
+  const meta = hub.parseFrontmatter(fm);
+  ok(meta.name === 'x', 'top-level name parsed');
+  ok(meta.category === undefined, 'nested metadata.openclaw.category is NOT flattened to top-level');
+  ok(meta.summary === undefined, 'nested summary is NOT flattened to top-level');
+}
 
 // ── Integration: frontmatter overrides (summary: / category:) in a temp hub ────
 const fs = require('fs'), os = require('os'), path = require('path');
@@ -93,6 +102,20 @@ const man = require('../src/categoriesManifest.js');
   ok(r.categoryOrder.includes('Empty Cat'), 'declared empty category still appears in categoryOrder');
   ok(r.categoryOrder.includes('Group A'), 'non-empty category appears too');
   ok(r.skills.find((s) => s.name === 'a').category === 'Group A', 'mapped skill keeps its category');
+  fs.rmSync(root, { recursive: true, force: true });
+})().catch((e) => { console.error(e); process.exit(1); });
+
+// ── Integration: nested metadata category must not override the manifest ───────
+(async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-nested-'));
+  fs.mkdirSync(path.join(root, 'rec'));
+  fs.writeFileSync(path.join(root, 'rec', 'SKILL.md'),
+    '---\nname: rec\ndescription: "d."\nmetadata:\n  openclaw:\n    category: "recipe"\n---\n# Rec\n');
+  fs.writeFileSync(path.join(root, 'skills-categories.json'),
+    JSON.stringify({ version: 1, categories: [{ id: 'google', label: 'Google', skills: ['rec'] }] }));
+  const r = await hub.scan({ hubRoot: root });
+  ok(r.skills.find((s) => s.name === 'rec').category === 'Google', 'manifest wins over a nested metadata category');
+  ok(!r.categoryOrder.includes('recipe'), 'no phantom "recipe" category from nested metadata');
   fs.rmSync(root, { recursive: true, force: true });
 })().catch((e) => { console.error(e); process.exit(1); });
 

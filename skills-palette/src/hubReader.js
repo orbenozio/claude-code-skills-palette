@@ -41,6 +41,10 @@ function unquote(v) {
 function parseFrontmatter(fm) {
   const out = {};
   for (const rawLine of fm.split(/\r?\n/)) {
+    // Only TOP-LEVEL keys (column 0). Indented lines are NESTED values (e.g.
+    // metadata.openclaw.category) and must NOT be flattened into top-level fields —
+    // otherwise a nested `category:` would wrongly override the palette's manifest.
+    if (/^\s/.test(rawLine)) continue;
     const line = rawLine.trimEnd();
     if (!line || line.startsWith('#')) continue;
     const idx = line.indexOf(':');
