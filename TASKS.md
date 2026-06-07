@@ -23,6 +23,9 @@
 - [x] message bridge webview↔host (toggleProject/toggleGlobal/open) + push state אחרי כל פעולה
 - [x] CSP עם nonce + רינדור user-text דרך textContent (בלי innerHTML); נבדק ב-`webviewPalette.test.js`
 - [x] extension מנתב את הכפתור ל-Webview; QuickPick נשאר כ-`skillsPalette.openQuickPick`
+- [x] תצוגת README מרונדרת בתוך ה-Webview בלחיצה על סקיל (Markdown→HTML בטוח, כפתור Back) — לא פותח את הקובץ
+- [x] הקצאת קטגוריה מתוך הכרטיס (`<select>`: קיימות / Uncategorized / + חדשה) שכותבת ל-`skills-categories.json` ב-hub (`categoriesManifest.js`)
+- [x] מודעות global↔project: כשסקיל גלובלי, "Link to project" מושבת עם הסבר (גלובלי כבר זמין בכל פרויקט)
 - [ ] (Phase 5) `FileSystemWatcher` כדי לרענן את ה-Webview הפתוח כשמשתנים סקילים/manifest
 
 ### Phase 3 — מצב "מחובר" + unlink (קוד מומש; דורש אימות)
