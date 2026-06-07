@@ -11,6 +11,7 @@ const { resolveTargets } = require('./targets/claude-code');
 const statusBar = require('./statusBar');
 const output = require('./output');
 const { openPalette } = require('./paletteUI');
+const { openWebviewPalette } = require('./webviewPalette');
 
 let reinjectTimer = null;
 let lastFocusCheck = 0;
@@ -162,6 +163,14 @@ async function resolveTargetFolder(wsPath) {
 }
 
 function open(context, wsPath) {
+  return openWebviewPalette(vscode, {
+    output: output.get(vscode),
+    getTargetFolder: () => resolveTargetFolder(wsPath),
+  });
+}
+
+/** QuickPick variant — lighter, keyboard-first fallback. */
+function openQuickPick(context, wsPath) {
   return openPalette(vscode, {
     output: output.get(vscode),
     getTargetFolder: () => resolveTargetFolder(wsPath),
@@ -177,6 +186,7 @@ function activate(context) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('skillsPalette.open', () => open(context, null)),
+    vscode.commands.registerCommand('skillsPalette.openQuickPick', () => openQuickPick(context, null)),
     vscode.commands.registerCommand('skillsPalette.checkAndInject', () => {
       const r = checkAndInject(context, { interactive: true });
       if (r.changed > 0) offerReload();

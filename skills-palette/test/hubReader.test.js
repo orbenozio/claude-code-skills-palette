@@ -39,6 +39,27 @@ ok(hub.deriveTitle('no heading here', 'release-vsix-github') === 'Release Vsix G
   ok(/# Foo Bar/.test(body), 'body separated from frontmatter');
 }
 
+// ── Integration: frontmatter overrides (summary: / category:) in a temp hub ────
+const fs = require('fs'), os = require('os'), path = require('path');
+(async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-fm-'));
+  fs.mkdirSync(path.join(root, 'over'));
+  fs.writeFileSync(path.join(root, 'over', 'SKILL.md'),
+    '---\nname: over\ncategory: Custom Cat\nsummary: A hand-written summary.\ndescription: Long desc. Triggers on x.\n---\n# Over\n');
+  fs.mkdirSync(path.join(root, 'plain'));
+  fs.writeFileSync(path.join(root, 'plain', 'SKILL.md'),
+    '---\nname: plain\ndescription: Plain desc. Triggers on y.\n---\n# Plain\n');
+  const r = await hub.scan({ hubRoot: root });
+  const over = r.skills.find((s) => s.name === 'over');
+  const plain = r.skills.find((s) => s.name === 'plain');
+  ok(over.summary === 'A hand-written summary.', 'frontmatter summary: overrides derivation');
+  ok(over.category === 'Custom Cat', 'frontmatter category: overrides manifest');
+  ok(plain.summary === 'Plain desc.', 'no override → derived summary');
+  ok(r.categoryOrder.includes('Custom Cat'), 'frontmatter-only category appears in order');
+  ok(r.categoryOrder[r.categoryOrder.length - 1] === hub.UNCATEGORIZED, 'Uncategorized stays last');
+  fs.rmSync(root, { recursive: true, force: true });
+})().catch((e) => { console.error(e); process.exit(1); });
+
 // ── Integration: real hub scan over all skills ─────────────────────────────────
 (async () => {
   const { skills, warnings } = await hub.scan();

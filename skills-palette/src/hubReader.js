@@ -149,20 +149,21 @@ async function scan(opts = {}) {
     const meta = parseFrontmatter(fm);
     const name = meta.name || entry.name;
     if (!meta.name) warnings.push(`${entry.name}\\SKILL.md: missing "name" in frontmatter (using folder name).`);
-    skills.push({
-      name,
-      title: deriveTitle(body, name),
-      summary: deriveSummary(meta.description || ''),
-      category: skillToCategory.get(name) || UNCATEGORIZED,
-      hubPath: dir,
-    });
+    // Optional frontmatter overrides take precedence over derivation / manifest.
+    const summary = meta.summary ? meta.summary.trim() : deriveSummary(meta.description || '');
+    const category = meta.category ? meta.category.trim() : (skillToCategory.get(name) || UNCATEGORIZED);
+    skills.push({ name, title: deriveTitle(body, name), summary, category, hubPath: dir });
   }
 
   skills.sort((a, b) => a.title.localeCompare(b.title));
 
-  // Final category order: manifest order first, then Uncategorized last (if used).
+  // Final category order: manifest order first, then any frontmatter-only categories
+  // (sorted), then Uncategorized last (if used).
   const used = new Set(skills.map((s) => s.category));
   const categoryOrder = order.filter((c) => used.has(c));
+  for (const c of [...used].sort((a, b) => a.localeCompare(b))) {
+    if (c !== UNCATEGORIZED && !categoryOrder.includes(c)) categoryOrder.push(c);
+  }
   if (used.has(UNCATEGORIZED)) categoryOrder.push(UNCATEGORIZED);
 
   return { skills, categoryOrder, warnings };
