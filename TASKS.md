@@ -8,15 +8,22 @@
 
 ### Phase 1 — אימות runtime (דורש reload + עין אנושית; הקוד מוכן)
 - [ ] `Developer: Restart Extension Host` → הכפתור מופיע ב-`#orb-tools` בפוטר של Claude
-- [ ] לחיצה על הכפתור → הפלטה נפתחת (deep link מגיע ל-host)
-- [ ] חיבור סקיל בלחיצה → junction אמיתי נוצר תחת `skill-test\.claude\skills\<skill>`
+- [ ] לחיצה על הכפתור → **ה-Webview** נפתח כ-tab (deep link מגיע ל-host)
+- [ ] סינון לפי קטגוריה ב-sidebar + חיפוש; חיבור סקיל מכרטיס → junction אמיתי נוצר
 - [ ] coexistence עם agentville בעין — שני הכפתורים חיים יחד, בלי reload-loop (NONSTOP כבר אומת חי; agentville אומת ב-unit test בלבד)
-- [ ] אימות ה-fallback: `Skills Palette: Open` מה-Command Palette + פריט status-bar
+- [ ] אימות ה-fallback: `Skills Palette: Open (QuickPick)` + פריט status-bar
 
 ### Phase 2 — קטגוריות (קוד מומש; דורש הפעלה ואימות)
 - [ ] להחליט על labels סופיים לקטגוריות (שאלה פתוחה ב-SPEC §11) — כרגע דוגמה ב-[skills-palette/skills-categories.example.json](skills-palette/skills-categories.example.json)
 - [ ] להציב `skills-categories.json` בפועל ב-`SkillsHub\` (נוגע ב-hub — דורש אישור)
-- [ ] לאמת בעין שה-separators מציגים את הסקילים מקובצים תחת הקטגוריות; לא-ממופים תחת "Uncategorized"
+- [ ] לאמת בעין ש-sidebar הקטגוריות מסנן נכון; לא-ממופים תחת "Uncategorized"
+
+### Webview palette (pivot מ-feedback — QuickPick לא מאפשר סינון-לפי-קטגוריה אינטראקטיבי)
+- [x] `webviewPalette.js` — WebviewPanel: sidebar קטגוריות לחיץ, חיפוש, כרטיסים בצבעי theme
+- [x] message bridge webview↔host (toggleProject/toggleGlobal/open) + push state אחרי כל פעולה
+- [x] CSP עם nonce + רינדור user-text דרך textContent (בלי innerHTML); נבדק ב-`webviewPalette.test.js`
+- [x] extension מנתב את הכפתור ל-Webview; QuickPick נשאר כ-`skillsPalette.openQuickPick`
+- [ ] (Phase 5) `FileSystemWatcher` כדי לרענן את ה-Webview הפתוח כשמשתנים סקילים/manifest
 
 ### Phase 3 — מצב "מחובר" + unlink (קוד מומש; דורש אימות)
 - [ ] לאמת ✓ על סקיל מחובר + toggle ל-unlink (מסיר רק את ה-junction)
