@@ -74,4 +74,13 @@ ok(wp.inline('[ok](https://example.com)').includes('href="https://example.com"')
 ok(wp.markdownClientSource().includes('function mdToHtml'), 'client source carries mdToHtml');
 ok(html.includes(wp.escAttr('a"b')) === false || wp.escAttr('a"b') === 'a&quot;b', 'escAttr escapes quotes');
 
+// ── Category management UI (rename / delete with confirm-on-non-empty) ─────────
+ok(html.includes('id="confirm-modal"'), 'confirm modal markup present');
+{
+  const script = html.match(new RegExp('<script nonce="' + N + '">([\\s\\S]*?)<\\/script>'))[1];
+  ok(script.includes('Rename category'), 'rename action present in sidebar');
+  ok(script.includes('openConfirm'), 'delete routes through a confirm dialog');
+  ok(/if \(n > 0\)/.test(script), 'confirm is gated on the category having skills (empty → no confirm)');
+}
+
 console.log(`✅ webviewPalette render + md security: ${passed} assertions passed`);

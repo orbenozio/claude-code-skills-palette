@@ -189,6 +189,9 @@ function renderHtml(state, theNonce, cspSource) {
   .modal input { padding: 6px 8px; color: var(--vscode-input-foreground); background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); border-radius: 4px; }
   .modal input:focus { outline: 1px solid var(--vscode-focusBorder); }
   .modal .row { display: flex; gap: 8px; justify-content: flex-end; }
+  .modal .msg { font-size: 12px; opacity: .85; line-height: 1.4; }
+  button.danger { background: var(--vscode-errorForeground, #c0392b); color: #fff; }
+  button.danger:hover { filter: brightness(1.12); }
 </style>
 </head>
 <body>
@@ -208,6 +211,16 @@ function renderHtml(state, theNonce, cspSource) {
       <div class="row">
         <button class="secondary" id="modal-cancel">Cancel</button>
         <button class="primary" id="modal-add">Add</button>
+      </div>
+    </div>
+  </div>
+  <div id="confirm-modal" class="modal-backdrop" hidden>
+    <div class="modal">
+      <h2 id="confirm-title">Delete category</h2>
+      <div class="msg" id="confirm-msg"></div>
+      <div class="row">
+        <button class="secondary" id="confirm-cancel">Cancel</button>
+        <button class="danger" id="confirm-ok">Delete</button>
       </div>
     </div>
   </div>
@@ -249,7 +262,13 @@ function renderHtml(state, theNonce, cspSource) {
           const del = document.createElement('button'); del.className = 'cat-act'; del.textContent = '🗑'; del.title = 'Delete category (its skills become Uncategorized)';
           del.addEventListener('click', (e) => {
             e.stopPropagation();
-            vscode.postMessage({ type: 'deleteCategory', label: label });
+            // Confirm ONLY when the category has skills; an empty one deletes directly.
+            if (n > 0) {
+              openConfirm('Delete category “' + label + '”? Its ' + n + ' skill' + (n === 1 ? '' : 's') + ' will become Uncategorized.',
+                function () { vscode.postMessage({ type: 'deleteCategory', label: label }); });
+            } else {
+              vscode.postMessage({ type: 'deleteCategory', label: label });
+            }
           });
           acts.appendChild(ren); acts.appendChild(del); d.appendChild(acts);
         }
@@ -398,6 +417,22 @@ ${markdownClientSource()}
     document.getElementById('modal-cancel').addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
     modalInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitModal(); else if (e.key === 'Escape') closeModal(); });
+
+    // ── Confirm modal (used for deleting a non-empty category) ────────────────────
+    const confirmModal = document.getElementById('confirm-modal');
+    const confirmMsg = document.getElementById('confirm-msg');
+    let confirmYes = null;
+    function openConfirm(message, onYes) {
+      confirmMsg.textContent = message;
+      confirmYes = onYes;
+      confirmModal.hidden = false;
+      document.getElementById('confirm-ok').focus();
+    }
+    function closeConfirm() { confirmModal.hidden = true; confirmYes = null; }
+    document.getElementById('confirm-ok').addEventListener('click', function () { const fn = confirmYes; closeConfirm(); if (fn) fn(); });
+    document.getElementById('confirm-cancel').addEventListener('click', closeConfirm);
+    confirmModal.addEventListener('click', (e) => { if (e.target === confirmModal) closeConfirm(); });
+    document.addEventListener('keydown', (e) => { if (!confirmModal.hidden && e.key === 'Escape') closeConfirm(); });
 
     function renderAll() { renderProj(); renderNav(); renderMain(); }
     renderAll();
