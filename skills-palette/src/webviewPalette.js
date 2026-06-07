@@ -19,6 +19,10 @@ const hubReader = require('./hubReader');
 const linker = require('./linker');
 const manifest = require('./categoriesManifest');
 
+// Single palette panel per window, so the footer button can TOGGLE it.
+let activePanel = null;
+let opening = false; // guards the await window between "decide to open" and panel creation
+
 function projectSkillsDir(folderFsPath) { return path.join(folderFsPath, '.claude', 'skills'); }
 function globalSkillsDir() { return path.join(os.homedir(), '.claude', 'skills'); }
 function hubRootOf(deps) { return deps.hubRoot || hubReader.DEFAULT_HUB; }
@@ -387,8 +391,24 @@ ${markdownClientSource()}
  * @param {object} deps  { output, getTargetFolder, hubRoot? }
  */
 async function openWebviewPalette(vscode, deps) {
+  // Toggle: if the palette is already open and focused, close it; if it's open in
+  // the background, bring it to front; otherwise create it. (Checked synchronously,
+  // before any await, so rapid clicks can't open two panels.)
+  if (activePanel) {
+    if (activePanel.active) { activePanel.dispose(); return; }
+    activePanel.reveal();
+    return;
+  }
+  if (opening) return; // a create is already in flight (e.g. awaiting a folder pick)
+  opening = true;
+
   const output = deps.output || { appendLine() {} };
-  const targetFolder = await deps.getTargetFolder();
+  let targetFolder;
+  try {
+    targetFolder = await deps.getTargetFolder();
+  } finally {
+    opening = false;
+  }
   const hubRoot = hubRootOf(deps);
 
   const panel = vscode.window.createWebviewPanel(
@@ -397,6 +417,7 @@ async function openWebviewPalette(vscode, deps) {
     vscode.ViewColumn.Active,
     { enableScripts: true, retainContextWhenHidden: true },
   );
+  activePanel = panel;
 
   async function pushState() {
     const state = await computeState(deps, targetFolder);
@@ -459,7 +480,7 @@ async function openWebviewPalette(vscode, deps) {
     }
   });
 
-  panel.onDidDispose(() => { /* nothing to clean up */ });
+  panel.onDidDispose(() => { if (activePanel === panel) activePanel = null; });
 }
 
 module.exports = { openWebviewPalette, renderHtml, computeState, nonce, projectSkillsDir, globalSkillsDir, esc, escAttr, inline, mdToHtml, markdownClientSource };
