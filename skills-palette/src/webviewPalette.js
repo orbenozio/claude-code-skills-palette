@@ -391,14 +391,11 @@ ${markdownClientSource()}
  * @param {object} deps  { output, getTargetFolder, hubRoot? }
  */
 async function openWebviewPalette(vscode, deps) {
-  // Toggle: if the palette is already open and focused, close it; if it's open in
-  // the background, bring it to front; otherwise create it. (Checked synchronously,
-  // before any await, so rapid clicks can't open two panels.)
-  if (activePanel) {
-    if (activePanel.active) { activePanel.dispose(); return; }
-    activePanel.reveal();
-    return;
-  }
+  // Strict toggle: if the palette is open, close it; otherwise create it. Strict
+  // (rather than "reveal if backgrounded") keeps it in lockstep with the footer
+  // button's optimistic lit state — every click flips the panel. Checked
+  // synchronously, before any await, so rapid clicks can't open two panels.
+  if (activePanel) { activePanel.dispose(); return; }
   if (opening) return; // a create is already in flight (e.g. awaiting a folder pick)
   opening = true;
 

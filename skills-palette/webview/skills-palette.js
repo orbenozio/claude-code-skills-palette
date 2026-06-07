@@ -77,8 +77,22 @@
       'color:#8a8a8a;opacity:.6;transition:color .15s,opacity .15s,background .15s;}' +
       '#skills-palette-btn svg{display:block;width:18px;height:18px;}' +
       '#skills-palette-btn:hover{opacity:1;color:#6ea8fe;background:rgba(110,168,254,.16);}' +
+      '#skills-palette-btn.on{opacity:1;color:#6ea8fe;background:rgba(110,168,254,.22);}' +
       '#skills-palette-btn:active{transform:scale(.92);}';
     document.head.appendChild(st);
+  }
+
+  // Optimistic "lit" state: the palette lives in a separate (host-owned) webview, so
+  // there is no host→button channel. The button toggles its own lit class in lockstep
+  // with the strict open/close toggle on the host. (Caveat: closing the palette via
+  // its editor tab can't notify the button; the next click re-syncs.)
+  var paletteOn = false;
+  function applyLit() {
+    var b = document.getElementById('skills-palette-btn');
+    if (b) {
+      if (paletteOn) b.classList.add('on'); else b.classList.remove('on');
+      b.setAttribute('aria-pressed', paletteOn ? 'true' : 'false');
+    }
   }
 
   // Open via synthesized anchor click. location.href / window.open are blocked in the
@@ -123,9 +137,12 @@
     btn.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
+      paletteOn = !paletteOn; // optimistic toggle, in lockstep with the host
+      applyLit();
       openPalette();
     });
     bar.appendChild(btn);
+    applyLit(); // re-applied on every re-inject so the lit state survives re-renders
   }
 
   setInterval(injectButton, 1500);
