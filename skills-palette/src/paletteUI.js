@@ -36,15 +36,19 @@ async function openPalette(vscode, deps) {
   const qp = vscode.window.createQuickPick();
   qp.title = 'Skills Palette' + (targetFolder ? ` — ${targetFolder.name}` : ' — (no project open)');
   qp.placeholder = targetFolder
-    ? 'Search skills · Enter = link/unlink to this project · ▸ buttons = global / open'
-    : 'Open a project folder to link skills · ▸ open to view a skill';
+    ? 'Search · $(plug) link to project · $(globe) link globally · $(go-to-file) open · (Enter also links to project)'
+    : 'Open a project folder to link skills · $(go-to-file) opens a skill';
   qp.matchOnDescription = true;
   qp.matchOnDetail = true;
   qp.busy = true;
   qp.show();
 
+  // Primary action (leftmost) — link/unlink to THIS project. Mirrors `accept`, but
+  // visible as a button so it's discoverable (the global link had a button; the
+  // project link — the common case — must be at least as obvious).
+  const linkBtn = { iconPath: new vscode.ThemeIcon('plug'), tooltip: 'Link / unlink to THIS project' };
+  const globeBtn = { iconPath: new vscode.ThemeIcon('globe'), tooltip: 'Link / unlink GLOBALLY (~/.claude/skills)' };
   const openBtn = { iconPath: new vscode.ThemeIcon('go-to-file'), tooltip: 'Open SKILL.md' };
-  const globeBtn = { iconPath: new vscode.ThemeIcon('globe'), tooltip: 'Toggle GLOBAL link (~/.claude/skills)' };
 
   let skills = [];
   let categoryOrder = [];
@@ -93,7 +97,7 @@ async function openPalette(vscode, deps) {
           label: (linked ? '$(check) ' : '') + s.title,
           description: marks.join('  ·  '),
           detail: s.summary,
-          buttons: [globeBtn, openBtn],
+          buttons: [linkBtn, globeBtn, openBtn],
           skill: s,
           _proj: proj,
           _glob: glob,
@@ -176,6 +180,7 @@ async function openPalette(vscode, deps) {
     const skill = e.item && e.item.skill;
     if (!skill) return;
     if (e.button === openBtn) { openSkillMd(skill); return; }
+    if (e.button === linkBtn) { toggleProject(skill); refresh(skill.name); return; }
     if (e.button === globeBtn) { toggleGlobal(skill); refresh(skill.name); }
   });
 
