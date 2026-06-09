@@ -34,6 +34,11 @@ function nonce() {
   return s;
 }
 
+// The skill layout is always one of two values; anything else (legacy/unknown) → 'grid'.
+// This is the single source of truth: the host uses it, AND its source is shipped into
+// the webview client (see the script below), so both sides normalise identically.
+function normLayout(v) { return v === 'list' ? 'list' : 'grid'; }
+
 // ── Markdown → HTML (shared by the webview client AND the unit tests) ────────────
 // These are REAL functions: we ship their `.toString()` source into the webview (so
 // there is one implementation, and no fragile backslash-escaping inside a template
@@ -87,7 +92,7 @@ function markdownClientSource() {
 }
 
 /** Compute the full state object the webview renders from. */
-async function computeState(deps, targetFolder) {
+async function computeState(deps, targetFolder, layout) {
   const res = await hubReader.scan(deps.hubRoot ? { hubRoot: deps.hubRoot } : {});
   const projDir = targetFolder ? projectSkillsDir(targetFolder.fsPath) : null;
   const globDir = globalSkillsDir();
@@ -109,6 +114,7 @@ async function computeState(deps, targetFolder) {
     categories: real,
     pinned: (res.pinned || []).filter((p) => real.includes(p)),
     skills,
+    layout: normLayout(layout), // every state push carries the layout, so a refresh never drops it
     warnings: res.warnings,
   };
 }
@@ -159,17 +165,24 @@ function renderHtml(state, theNonce, cspSource) {
   .cat-add:hover { background: var(--vscode-list-hoverBackground); }
   .nav-sep { height: 1px; margin: 6px 6px; background: var(--vscode-widget-border, rgba(128,128,128,.28)); }
   .cat-act.pin.pinned { opacity: 1; color: var(--vscode-textLink-foreground); }
-  .viewswitch { display: inline-flex; gap: 2px; flex: 0 0 auto; }
-  .vbtn { display: inline-flex; align-items: center; justify-content: center; padding: 4px; background: transparent; border: none; border-radius: 4px; cursor: pointer; color: var(--vscode-foreground); opacity: .55; }
+  .layout-switch { display: inline-flex; gap: 2px; flex: 0 0 auto; }
+  .vbtn { display: inline-flex; align-items: center; justify-content: center; padding: 6px; background: transparent; border: none; border-radius: 4px; cursor: pointer; color: var(--vscode-foreground); opacity: .55; }
   .vbtn svg { width: 16px; height: 16px; display: block; }
   .vbtn:hover { opacity: 1; background: var(--vscode-list-hoverBackground); }
-  .vbtn.active { opacity: 1; background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
+  /* active carries a non-colour cue (inset ring) too, so it's distinguishable from hover
+     and for users who don't perceive the colour shift. */
+  .vbtn.active { opacity: 1; background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); box-shadow: inset 0 0 0 1px var(--vscode-focusBorder); }
+  /* Visible keyboard focus for every interactive control in the panel (the webview
+     default outline is often suppressed). */
+  .vbtn:focus-visible, button:focus-visible, select:focus-visible, .cat:focus-visible, .cat-act:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
   main { overflow-y: auto; padding: 0 var(--gap) var(--gap); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); align-content: start; padding-top: var(--gap); }
   .list { display: flex; flex-direction: column; gap: 6px; padding-top: var(--gap); }
   .card.rowitem { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 8px 12px; }
   .card.rowitem .top { flex: 0 0 auto; max-width: 320px; }
-  .card.rowitem .summary { flex: 1 1 180px; }
+  /* keep List rows compact: a long summary truncates to one line instead of wrapping
+     the row into a second "card-like" line. min-width:0 lets the ellipsis kick in. */
+  .card.rowitem .summary { flex: 1 1 180px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .card.rowitem .catrow, .card.rowitem .actions { flex: 0 0 auto; }
   .card { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); border-radius: 8px; background: var(--vscode-editorWidget-background); }
   .card.linked { border-color: var(--vscode-charts-green, #4caf50); }
@@ -221,10 +234,10 @@ function renderHtml(state, theNonce, cspSource) {
     <header>
       <h1>Skills Palette</h1>
       <span class="proj" id="proj"></span>
-      <input id="search" type="text" placeholder="Filter skills…">
-      <div class="viewswitch">
-        <button class="vbtn" id="view-grid" title="Grid view"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></button>
-        <button class="vbtn" id="view-list" title="List view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+      <input id="search" type="text" placeholder="Filter skills...">
+      <div class="layout-switch" role="group" aria-label="Skill layout">
+        <button class="vbtn" id="layout-grid" type="button" aria-label="Grid view" title="Grid view"><svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></button>
+        <button class="vbtn" id="layout-list" type="button" aria-label="List view" title="List view"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
       </div>
     </header>
     <nav id="nav"></nav>
@@ -256,7 +269,7 @@ function renderHtml(state, theNonce, cspSource) {
     let activeCat = '__all__';
     let query = '';
     let view = 'list';        // main area: 'list' (skills) | 'preview' (readme)
-    let viewMode = state.viewMode === 'list' ? 'list' : 'grid'; // skill layout: 'grid' | 'list'
+    let layout = normLayout(state.layout); // skill layout within the list: 'grid' | 'list'
     let preview = null;       // { name, title, body }
 
     const navEl = document.getElementById('nav');
@@ -266,22 +279,41 @@ function renderHtml(state, theNonce, cspSource) {
 
     searchEl.addEventListener('input', () => { query = searchEl.value.trim().toLowerCase(); if (view === 'list') renderMain(); });
 
-    const gridBtn = document.getElementById('view-grid');
-    const listBtn = document.getElementById('view-list');
-    function applyViewButtons() { gridBtn.classList.toggle('active', viewMode === 'grid'); listBtn.classList.toggle('active', viewMode === 'list'); }
-    function setView(v) { viewMode = v; applyViewButtons(); if (view === 'list') renderMain(); vscode.postMessage({ type: 'setView', view: v }); }
-    gridBtn.addEventListener('click', () => setView('grid'));
-    listBtn.addEventListener('click', () => setView('list'));
-    applyViewButtons();
+    const gridBtn = document.getElementById('layout-grid');
+    const listBtn = document.getElementById('layout-list');
+    function applyLayoutButtons() {
+      gridBtn.classList.toggle('active', layout === 'grid');
+      listBtn.classList.toggle('active', layout === 'list');
+      // expose the active layout to screen readers (the visual .active class alone is silent)
+      gridBtn.setAttribute('aria-pressed', String(layout === 'grid'));
+      listBtn.setAttribute('aria-pressed', String(layout === 'list'));
+    }
+    // grid/list differ only by classes on the wrapper + cards, so switch in place instead
+    // of rebuilding the DOM. Faster, and it preserves the scroll position.
+    function applyLayout() {
+      const wrap = mainEl.querySelector('.grid, .list');
+      if (!wrap) { if (view === 'list') renderMain(); return; }
+      wrap.className = (layout === 'list') ? 'list' : 'grid';
+      for (const card of wrap.children) card.classList.toggle('rowitem', layout === 'list');
+    }
+    function setLayout(v) {
+      layout = normLayout(v);
+      applyLayoutButtons();
+      applyLayout();
+      vscode.postMessage({ type: 'setLayout', layout: layout });
+    }
+    gridBtn.addEventListener('click', () => setLayout('grid'));
+    listBtn.addEventListener('click', () => setLayout('list'));
+    applyLayoutButtons();
 
     function counts() {
       const m = new Map();
       for (const s of state.skills) m.set(s.category, (m.get(s.category) || 0) + 1);
       return m;
     }
-    var PENCIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
-    var TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
-    var PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+    var PENCIL = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
+    var TRASH = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+    var PIN = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
 
     function navSep() { const s = document.createElement('div'); s.className = 'nav-sep'; navEl.appendChild(s); }
 
@@ -294,14 +326,14 @@ function renderHtml(state, theNonce, cspSource) {
       if (opts.manageable) {
         const acts = document.createElement('span'); acts.className = 'cat-actions';
         const pin = document.createElement('button'); pin.className = 'cat-act pin' + (opts.pinned ? ' pinned' : ''); pin.innerHTML = PIN;
-        pin.title = opts.pinned ? 'Unpin' : 'Pin to top';
+        pin.title = opts.pinned ? 'Unpin' : 'Pin to top'; pin.setAttribute('aria-label', pin.title);
         pin.addEventListener('click', (e) => { e.stopPropagation(); vscode.postMessage({ type: 'setPinned', label: label, pinned: !opts.pinned }); });
-        const ren = document.createElement('button'); ren.className = 'cat-act'; ren.innerHTML = PENCIL; ren.title = 'Rename category';
-        ren.addEventListener('click', (e) => { e.stopPropagation(); openModal('Rename category “' + label + '”', label, function (v) { vscode.postMessage({ type: 'renameCategory', old: label, label: v }); }); });
-        const del = document.createElement('button'); del.className = 'cat-act del'; del.innerHTML = TRASH; del.title = 'Delete category (its skills become Uncategorized)';
+        const ren = document.createElement('button'); ren.className = 'cat-act'; ren.innerHTML = PENCIL; ren.title = 'Rename category'; ren.setAttribute('aria-label', ren.title);
+        ren.addEventListener('click', (e) => { e.stopPropagation(); openModal('Rename category "' + label + '"', label, function (v) { vscode.postMessage({ type: 'renameCategory', old: label, label: v }); }); });
+        const del = document.createElement('button'); del.className = 'cat-act del'; del.innerHTML = TRASH; del.title = 'Delete category (its skills become Uncategorized)'; del.setAttribute('aria-label', del.title);
         del.addEventListener('click', (e) => {
           e.stopPropagation();
-          if (n > 0) openConfirm('Delete category “' + label + '”? Its ' + n + ' skill' + (n === 1 ? '' : 's') + ' will become Uncategorized.', function () { vscode.postMessage({ type: 'deleteCategory', label: label }); });
+          if (n > 0) openConfirm('Delete category "' + label + '"? Its ' + n + ' skill' + (n === 1 ? '' : 's') + ' will become Uncategorized.', function () { vscode.postMessage({ type: 'deleteCategory', label: label }); });
           else vscode.postMessage({ type: 'deleteCategory', label: label });
         });
         acts.appendChild(pin); acts.appendChild(ren); acts.appendChild(del); d.appendChild(acts);
@@ -339,7 +371,7 @@ function renderHtml(state, theNonce, cspSource) {
       });
     }
     function renderProj() {
-      projEl.textContent = state.hasProject ? ('→ ' + state.targetName) : '(no project open — project link disabled)';
+      projEl.textContent = state.hasProject ? ('-> ' + state.targetName) : '(no project open - project link disabled)';
     }
     function badge(cls, text) { const b = document.createElement('span'); b.className = 'badge ' + cls; b.textContent = text; return b; }
     function btn(cls, text, on, disabled) {
@@ -367,13 +399,13 @@ function renderHtml(state, theNonce, cspSource) {
     function renderMain() {
       mainEl.textContent = '';
       if (view === 'preview') return renderPreview();
-      const wrap = document.createElement('div'); wrap.className = (viewMode === 'list') ? 'list' : 'grid';
+      const wrap = document.createElement('div'); wrap.className = (layout === 'list') ? 'list' : 'grid';
       const list = visible();
       if (!list.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'No skills match.'; mainEl.appendChild(e); return; }
       for (const s of list) {
         const linked = s.proj === 'linked';
         const broken = s.proj === 'broken';
-        const card = document.createElement('div'); card.className = 'card' + (linked ? ' linked' : '') + (viewMode === 'list' ? ' rowitem' : '');
+        const card = document.createElement('div'); card.className = 'card' + (linked ? ' linked' : '') + (layout === 'list' ? ' rowitem' : '');
         const top = document.createElement('div'); top.className = 'top';
         const title = document.createElement('span'); title.className = 'title'; title.textContent = s.title;
         title.title = 'Open README preview';
@@ -384,7 +416,7 @@ function renderHtml(state, theNonce, cspSource) {
         else if (broken) top.appendChild(badge('broken', 'broken'));
         if (s.glob === 'linked') {
           const gb = badge('glob', coveredByGlobal ? 'global · active here' : 'global');
-          gb.title = 'Linked globally — available in every project automatically';
+          gb.title = 'Linked globally - available in every project automatically';
           top.appendChild(gb);
         }
         card.appendChild(top);
@@ -414,9 +446,10 @@ function renderHtml(state, theNonce, cspSource) {
       mainEl.appendChild(wrap);
     }
 
-    // ── Markdown → HTML helpers (esc / escAttr / inline / mdToHtml) ───────────────
-    // Injected as REAL function source (not a hand-escaped string) so the host and
-    // the unit tests share one implementation. See markdownClientSource().
+    // ── Shared helpers, injected as REAL function source (not hand-escaped strings) so
+    // the host, the webview client, and the unit tests all share one implementation.
+    // normLayout + the Markdown→HTML helpers (esc / escAttr / inline / mdToHtml).
+${normLayout.toString()}
 ${markdownClientSource()}
 
     function renderPreview() {
@@ -458,7 +491,7 @@ ${markdownClientSource()}
       modalInput.focus(); modalInput.select();
     }
     function openNewCategoryModal(name) {
-      openModal('New category for “' + name + '”', '', function (v) { vscode.postMessage({ type: 'setCategory', name: name, label: v }); });
+      openModal('New category for "' + name + '"', '', function (v) { vscode.postMessage({ type: 'setCategory', name: name, label: v }); });
     }
     function closeModal() { modal.hidden = true; modalSubmit = null; }
     function submitModal() {
@@ -529,21 +562,24 @@ async function openWebviewPalette(vscode, deps) {
 
   const panel = vscode.window.createWebviewPanel(
     'skillsPalette',
-    'Skills Palette' + (targetFolder ? ` — ${targetFolder.name}` : ''),
+    'Skills Palette' + (targetFolder ? ` - ${targetFolder.name}` : ''),
     vscode.ViewColumn.Active,
     { enableScripts: true, retainContextWhenHidden: true },
   );
   activePanel = panel;
 
+  // Current skill layout, seeded from the persisted preference. Tracked here so every
+  // pushState carries it (a refresh after link/category edits keeps the user's choice).
+  let currentLayout = normLayout(deps.layout);
+
   async function pushState() {
-    const state = await computeState(deps, targetFolder);
+    const state = await computeState(deps, targetFolder, currentLayout);
     for (const w of state.warnings) output.appendLine(`[scan] ${w}`);
     panel.webview.postMessage({ type: 'state', state });
   }
 
-  const initial = await computeState(deps, targetFolder);
+  const initial = await computeState(deps, targetFolder, currentLayout);
   for (const w of initial.warnings) output.appendLine(`[scan] ${w}`);
-  initial.viewMode = deps.viewMode === 'list' ? 'list' : 'grid'; // read once by the client
   panel.webview.html = renderHtml(initial, nonce(), panel.webview.cspSource);
 
   async function skillFromHub(name) {
@@ -555,7 +591,11 @@ async function openWebviewPalette(vscode, deps) {
     if (!msg || !msg.type) return;
     try {
       if (msg.type === 'ready') return;
-      if (msg.type === 'setView') { if (deps.saveView) deps.saveView(msg.view === 'list' ? 'list' : 'grid'); return; }
+      if (msg.type === 'setLayout') {
+        currentLayout = normLayout(msg.layout);
+        if (deps.saveLayout) deps.saveLayout(currentLayout);
+        return;
+      }
 
       if (msg.type === 'preview') {
         const s = await skillFromHub(msg.name);
@@ -572,17 +612,12 @@ async function openWebviewPalette(vscode, deps) {
         // no longer needs an InputBox here.
         manifest.setCategory(hubRoot, msg.name, msg.label || '');
         const to = (msg.label && msg.label.trim()) ? msg.label.trim() : 'Uncategorized';
-        vscode.window.showInformationMessage(`Moved “${msg.name}” → ${to}.`);
+        vscode.window.showInformationMessage(`Moved "${msg.name}" -> ${to}.`);
         await pushState();
         return;
       }
       if (msg.type === 'createCategory') {
         manifest.createCategory(hubRoot, msg.label || '');
-        await pushState();
-        return;
-      }
-      if (msg.type === 'setPinned') {
-        manifest.setPinned(hubRoot, msg.label, !!msg.pinned);
         await pushState();
         return;
       }
@@ -598,7 +633,7 @@ async function openWebviewPalette(vscode, deps) {
       }
       if (msg.type === 'deleteCategory') {
         manifest.deleteCategory(hubRoot, msg.label);
-        vscode.window.showInformationMessage(`Deleted category "${msg.label}" — its skills are now Uncategorized.`);
+        vscode.window.showInformationMessage(`Deleted category "${msg.label}" - its skills are now Uncategorized.`);
         await pushState();
         return;
       }
@@ -629,4 +664,4 @@ async function openWebviewPalette(vscode, deps) {
   panel.onDidDispose(() => { if (activePanel === panel) activePanel = null; });
 }
 
-module.exports = { openWebviewPalette, renderHtml, computeState, nonce, projectSkillsDir, globalSkillsDir, esc, escAttr, inline, mdToHtml, markdownClientSource };
+module.exports = { openWebviewPalette, renderHtml, computeState, nonce, normLayout, projectSkillsDir, globalSkillsDir, esc, escAttr, inline, mdToHtml, markdownClientSource };

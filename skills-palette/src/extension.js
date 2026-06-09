@@ -168,8 +168,8 @@ function open(context, wsPath, desiredOn) {
     output: output.get(vscode),
     getTargetFolder: () => resolveTargetFolder(wsPath),
     desiredOn, // true/false from the footer button's lit state; undefined = plain toggle
-    viewMode: context.globalState.get('skillsPalette.viewMode', 'grid'),
-    saveView: (v) => context.globalState.update('skillsPalette.viewMode', v),
+    layout: context.globalState.get('skillsPalette.layout', 'grid'),
+    saveLayout: (v) => context.globalState.update('skillsPalette.layout', v),
   });
 }
 

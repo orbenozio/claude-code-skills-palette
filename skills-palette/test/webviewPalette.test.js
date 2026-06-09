@@ -88,10 +88,24 @@ ok(html.includes('id="confirm-modal"'), 'confirm modal markup present');
   ok(script.includes('+ New category'), 'New category is a fixed top item');
   ok(script.includes("type: 'setPinned'"), 'pin/unpin action present');
   ok(script.includes('state.pinned'), 'sidebar groups pinned categories');
-  // View switcher: grid/list toggle, persisted.
-  ok(html.includes('id="view-grid"') && html.includes('id="view-list"'), 'grid/list view switcher present');
-  ok(script.includes("type: 'setView'"), 'view choice is persisted via setView');
+  // Layout switcher: grid/list toggle, persisted, accessible.
+  ok(html.includes('id="layout-grid"') && html.includes('id="layout-list"'), 'grid/list layout switcher present');
+  ok(script.includes("type: 'setLayout'"), 'layout choice is persisted via setLayout');
   ok(script.includes('rowitem'), 'list layout class present');
+  ok(html.includes('aria-label="Grid view"') && html.includes('aria-label="List view"'), 'layout buttons have accessible names');
+  ok(html.includes('role="group"') && html.includes('aria-label="Skill layout"'), 'layout switch is a labelled group');
+  ok(script.includes('aria-pressed'), 'active layout is exposed via aria-pressed');
+  ok(html.includes(':focus-visible'), 'visible keyboard-focus styles present');
+  ok(script.includes('function normLayout'), 'normLayout shipped into the client (single source)');
+}
+
+// computeState carries a normalised layout on every push (so a refresh never drops it).
+{
+  const base = wp.computeState;
+  ok(typeof base === 'function', 'computeState is exported');
+  // normLayout is the single source of truth for the two valid values.
+  ok(wp.normLayout('list') === 'list' && wp.normLayout('grid') === 'grid', 'normLayout keeps valid values');
+  ok(wp.normLayout(undefined) === 'grid' && wp.normLayout('weird') === 'grid', 'normLayout defaults unknown input to grid');
 }
 
 console.log(`✅ webviewPalette render + md security: ${passed} assertions passed`);
