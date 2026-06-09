@@ -15,8 +15,5 @@ Thumbs.db
 tmp/
 temp/
 
-# Standalone demo/presentation deck — not part of the claude-code-skills-palette project
-demo/
-
 # Packaged VSIX build artifacts
 *.vsix

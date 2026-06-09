@@ -2,7 +2,7 @@
   "name": "claude-code-skills-palette",
   "displayName": "Skills Palette",
   "description": "A button in the Claude Code panel that opens a categorized palette of your Skills Hub skills and links any of them into the current project in one click.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "OrBenozio",
   "license": "MIT",
   "icon": "icon.png",

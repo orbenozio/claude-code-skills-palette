@@ -142,7 +142,7 @@ function renderHtml(state, theNonce, cspSource) {
   * { box-sizing: border-box; }
   body { margin: 0; color: var(--vscode-foreground); font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); background: var(--vscode-editor-background); }
   .wrap { display: grid; grid-template-columns: 200px 1fr; grid-template-rows: auto 1fr; height: 100vh; }
-  header { grid-column: 1 / 3; display: flex; gap: var(--gap); align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); }
+  header { grid-column: 1 / 3; display: flex; flex-wrap: wrap; gap: var(--gap); align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); }
   header h1 { font-size: 13px; font-weight: 600; margin: 0; opacity: .8; white-space: nowrap; }
   header .proj { font-size: 12px; opacity: .65; white-space: nowrap; }
   #search { flex: 1; min-width: 80px; padding: 5px 8px; color: var(--vscode-input-foreground); background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); border-radius: 4px; }
@@ -175,6 +175,18 @@ function renderHtml(state, theNonce, cspSource) {
   /* Visible keyboard focus for every interactive control in the panel (the webview
      default outline is often suppressed). */
   .vbtn:focus-visible, button:focus-visible, select:focus-visible, .cat:focus-visible, .cat-act:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
+  /* Top-level view tabs: Hub (whole hub) vs This project (what's linked here). */
+  .tabs { display: inline-flex; gap: 2px; flex: 0 0 auto; }
+  .tab { font-family: inherit; font-size: 12px; padding: 5px 10px; background: transparent; border: none; border-radius: 5px; cursor: pointer; color: var(--vscode-foreground); opacity: .6; white-space: nowrap; }
+  .tab:hover:not(:disabled) { opacity: 1; background: var(--vscode-list-hoverBackground); }
+  .tab.active { opacity: 1; background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); box-shadow: inset 0 0 0 1px var(--vscode-focusBorder); }
+  .tab:disabled { opacity: .35; cursor: default; }
+  /* Section headers used in the project view to split Local from Global. */
+  .section-h { display: flex; align-items: baseline; gap: 8px; padding-top: var(--gap); margin-top: 4px; }
+  .section-h.first { margin-top: 0; }
+  .section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; opacity: .7; }
+  .section-sub { font-size: 11px; opacity: .5; }
+  .section-count { margin-left: auto; font-size: 11px; opacity: .5; font-variant-numeric: tabular-nums; }
   main { overflow-y: auto; padding: 0 var(--gap) var(--gap); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); align-content: start; padding-top: var(--gap); }
   .list { display: flex; flex-direction: column; gap: 6px; padding-top: var(--gap); }
@@ -233,6 +245,10 @@ function renderHtml(state, theNonce, cspSource) {
   <div class="wrap">
     <header>
       <h1>Skills Palette</h1>
+      <div class="tabs" role="tablist" aria-label="View">
+        <button class="tab" id="tab-hub" type="button" role="tab">Hub</button>
+        <button class="tab" id="tab-project" type="button" role="tab">This project</button>
+      </div>
       <span class="proj" id="proj"></span>
       <input id="search" type="text" placeholder="Filter skills...">
       <div class="layout-switch" role="group" aria-label="Skill layout">
@@ -268,6 +284,7 @@ function renderHtml(state, theNonce, cspSource) {
     let state = ${json};
     let activeCat = '__all__';
     let query = '';
+    let tab = 'hub';          // top-level scope: 'hub' (whole hub) | 'project' (linked here)
     let view = 'list';        // main area: 'list' (skills) | 'preview' (readme)
     let layout = normLayout(state.layout); // skill layout within the list: 'grid' | 'list'
     let preview = null;       // { name, title, body }
@@ -291,10 +308,12 @@ function renderHtml(state, theNonce, cspSource) {
     // grid/list differ only by classes on the wrapper + cards, so switch in place instead
     // of rebuilding the DOM. Faster, and it preserves the scroll position.
     function applyLayout() {
-      const wrap = mainEl.querySelector('.grid, .list');
-      if (!wrap) { if (view === 'list') renderMain(); return; }
-      wrap.className = (layout === 'list') ? 'list' : 'grid';
-      for (const card of wrap.children) card.classList.toggle('rowitem', layout === 'list');
+      const wraps = mainEl.querySelectorAll('.grid, .list');
+      if (!wraps.length) { if (view === 'list') renderMain(); return; }
+      for (const wrap of wraps) {
+        wrap.className = (layout === 'list') ? 'list' : 'grid';
+        for (const card of wrap.children) card.classList.toggle('rowitem', layout === 'list');
+      }
     }
     function setLayout(v) {
       layout = normLayout(v);
@@ -306,9 +325,40 @@ function renderHtml(state, theNonce, cspSource) {
     listBtn.addEventListener('click', () => setLayout('list'));
     applyLayoutButtons();
 
+    // Top-level tabs. The project tab is disabled until a project folder is open,
+    // since "linked here" has no meaning without one.
+    const hubTabBtn = document.getElementById('tab-hub');
+    const projTabBtn = document.getElementById('tab-project');
+    function applyTabButtons() {
+      hubTabBtn.classList.toggle('active', tab === 'hub');
+      projTabBtn.classList.toggle('active', tab === 'project');
+      hubTabBtn.setAttribute('aria-selected', String(tab === 'hub'));
+      projTabBtn.setAttribute('aria-selected', String(tab === 'project'));
+      projTabBtn.disabled = !state.hasProject;
+      projTabBtn.title = state.hasProject ? '' : 'Open a project folder to see its linked skills.';
+    }
+    function setTab(t) {
+      const next = (t === 'project' && state.hasProject) ? 'project' : 'hub';
+      if (next === tab) return;
+      tab = next;
+      view = 'list';            // leave any open README preview when switching scope
+      applyTabButtons();
+      renderNav();              // counts are scoped to the active tab
+      renderMain();
+    }
+    hubTabBtn.addEventListener('click', () => setTab('hub'));
+    projTabBtn.addEventListener('click', () => setTab('project'));
+
+    // Location scope. A skill linked globally is "global" even if also linked locally
+    // (global wins - it's already active everywhere), so Local excludes those.
+    function isGlobal(s) { return s.glob === 'linked' || s.glob === 'broken'; }
+    function isLocal(s) { return s.proj === 'linked' || s.proj === 'broken'; }
+    function projectSkills() { return state.skills.filter((s) => isLocal(s) || isGlobal(s)); }
+    function tabSkills() { return tab === 'project' ? projectSkills() : state.skills; }
+
     function counts() {
       const m = new Map();
-      for (const s of state.skills) m.set(s.category, (m.get(s.category) || 0) + 1);
+      for (const s of tabSkills()) m.set(s.category, (m.get(s.category) || 0) + 1);
       return m;
     }
     var PENCIL = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
@@ -345,8 +395,8 @@ function renderHtml(state, theNonce, cspSource) {
     function renderNav() {
       const c = counts();
       navEl.textContent = '';
-      // Fixed top items, always present.
-      mkCat('__all__', 'All Skills', state.skills.length, {});
+      // Fixed top items, always present. "All Skills" counts the active tab's scope.
+      mkCat('__all__', 'All Skills', tabSkills().length, {});
       mkCat('Uncategorized', 'Uncategorized', c.get('Uncategorized') || 0, {});
       const addRow = document.createElement('div'); addRow.className = 'cat cat-add';
       const at = document.createElement('span'); at.className = 'cat-name'; at.textContent = '+ New category'; addRow.appendChild(at);
@@ -363,13 +413,12 @@ function renderHtml(state, theNonce, cspSource) {
         for (const cat of rest) mkCat(cat, cat, c.get(cat) || 0, { manageable: true, pinned: false });
       }
     }
-    function visible() {
-      return state.skills.filter((s) => {
-        if (activeCat !== '__all__' && s.category !== activeCat) return false;
-        if (query && !(s.title.toLowerCase().includes(query) || s.summary.toLowerCase().includes(query) || s.name.includes(query))) return false;
-        return true;
-      });
+    function matchFilters(s) {
+      if (activeCat !== '__all__' && s.category !== activeCat) return false;
+      if (query && !(s.title.toLowerCase().includes(query) || s.summary.toLowerCase().includes(query) || s.name.includes(query))) return false;
+      return true;
     }
+    function visible(list) { return (list || state.skills).filter(matchFilters); }
     function renderProj() {
       projEl.textContent = state.hasProject ? ('-> ' + state.targetName) : '(no project open - project link disabled)';
     }
@@ -396,54 +445,84 @@ function renderHtml(state, theNonce, cspSource) {
       return sel;
     }
 
+    function makeCard(s) {
+      const linked = s.proj === 'linked';
+      const broken = s.proj === 'broken';
+      const card = document.createElement('div'); card.className = 'card' + (linked ? ' linked' : '') + (layout === 'list' ? ' rowitem' : '');
+      const top = document.createElement('div'); top.className = 'top';
+      const title = document.createElement('span'); title.className = 'title'; title.textContent = s.title;
+      title.title = 'Open README preview';
+      title.addEventListener('click', () => vscode.postMessage({ type: 'preview', name: s.name }));
+      top.appendChild(title);
+      const coveredByGlobal = s.glob === 'linked' && !linked;
+      if (linked) top.appendChild(badge('proj', '✓ linked'));
+      else if (broken) top.appendChild(badge('broken', 'broken'));
+      if (s.glob === 'linked') {
+        const gb = badge('glob', coveredByGlobal ? 'global · active here' : 'global');
+        gb.title = 'Linked globally - available in every project automatically';
+        top.appendChild(gb);
+      }
+      card.appendChild(top);
+      const sum = document.createElement('div'); sum.className = 'summary'; sum.textContent = s.summary;
+      sum.title = 'Open README preview';
+      sum.addEventListener('click', () => vscode.postMessage({ type: 'preview', name: s.name }));
+      card.appendChild(sum);
+      const catrow = document.createElement('div'); catrow.className = 'catrow';
+      const lbl = document.createElement('span'); lbl.textContent = 'Category:'; catrow.appendChild(lbl);
+      catrow.appendChild(categorySelect(s));
+      card.appendChild(catrow);
+      const actions = document.createElement('div'); actions.className = 'actions';
+      // A globally-linked skill is ALREADY available in every project, so linking it
+      // per-project is redundant — disable that action and explain why.
+      const projDisabled = !state.hasProject || coveredByGlobal;
+      const projBtn = btn('primary', linked ? 'Unlink from project' : 'Link to project',
+        () => vscode.postMessage({ type: 'toggleProject', name: s.name }), projDisabled);
+      if (coveredByGlobal) projBtn.title = 'Already available here via the global link. Unlink global to make it per-project only.';
+      else if (!state.hasProject) projBtn.title = 'Open a project folder first.';
+      actions.appendChild(projBtn);
+      actions.appendChild(btn('secondary', s.glob === 'linked' ? 'Unlink global' : 'Link globally',
+        () => vscode.postMessage({ type: 'toggleGlobal', name: s.name })));
+      actions.appendChild(btn('secondary', 'Preview', () => vscode.postMessage({ type: 'preview', name: s.name })));
+      card.appendChild(actions);
+      return card;
+    }
+
+    function buildList(list) {
+      const wrap = document.createElement('div'); wrap.className = (layout === 'list') ? 'list' : 'grid';
+      for (const s of list) wrap.appendChild(makeCard(s));
+      return wrap;
+    }
+    function emptyEl(text) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = text; return e; }
+
+    // One labelled section (used by the project view to split Local from Global).
+    function section(first, title, sub, list, emptyText) {
+      const h = document.createElement('div'); h.className = 'section-h' + (first ? ' first' : '');
+      const t = document.createElement('span'); t.className = 'section-title'; t.textContent = title; h.appendChild(t);
+      if (sub) { const s = document.createElement('span'); s.className = 'section-sub'; s.textContent = sub; h.appendChild(s); }
+      const c = document.createElement('span'); c.className = 'section-count'; c.textContent = String(list.length); h.appendChild(c);
+      mainEl.appendChild(h);
+      mainEl.appendChild(list.length ? buildList(list) : emptyEl(emptyText));
+    }
+
     function renderMain() {
       mainEl.textContent = '';
       if (view === 'preview') return renderPreview();
-      const wrap = document.createElement('div'); wrap.className = (layout === 'list') ? 'list' : 'grid';
-      const list = visible();
-      if (!list.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'No skills match.'; mainEl.appendChild(e); return; }
-      for (const s of list) {
-        const linked = s.proj === 'linked';
-        const broken = s.proj === 'broken';
-        const card = document.createElement('div'); card.className = 'card' + (linked ? ' linked' : '') + (layout === 'list' ? ' rowitem' : '');
-        const top = document.createElement('div'); top.className = 'top';
-        const title = document.createElement('span'); title.className = 'title'; title.textContent = s.title;
-        title.title = 'Open README preview';
-        title.addEventListener('click', () => vscode.postMessage({ type: 'preview', name: s.name }));
-        top.appendChild(title);
-        const coveredByGlobal = s.glob === 'linked' && !linked;
-        if (linked) top.appendChild(badge('proj', '✓ linked'));
-        else if (broken) top.appendChild(badge('broken', 'broken'));
-        if (s.glob === 'linked') {
-          const gb = badge('glob', coveredByGlobal ? 'global · active here' : 'global');
-          gb.title = 'Linked globally - available in every project automatically';
-          top.appendChild(gb);
-        }
-        card.appendChild(top);
-        const sum = document.createElement('div'); sum.className = 'summary'; sum.textContent = s.summary;
-        sum.title = 'Open README preview';
-        sum.addEventListener('click', () => vscode.postMessage({ type: 'preview', name: s.name }));
-        card.appendChild(sum);
-        const catrow = document.createElement('div'); catrow.className = 'catrow';
-        const lbl = document.createElement('span'); lbl.textContent = 'Category:'; catrow.appendChild(lbl);
-        catrow.appendChild(categorySelect(s));
-        card.appendChild(catrow);
-        const actions = document.createElement('div'); actions.className = 'actions';
-        // A globally-linked skill is ALREADY available in every project, so linking it
-        // per-project is redundant — disable that action and explain why.
-        const projDisabled = !state.hasProject || coveredByGlobal;
-        const projBtn = btn('primary', linked ? 'Unlink from project' : 'Link to project',
-          () => vscode.postMessage({ type: 'toggleProject', name: s.name }), projDisabled);
-        if (coveredByGlobal) projBtn.title = 'Already available here via the global link. Unlink global to make it per-project only.';
-        else if (!state.hasProject) projBtn.title = 'Open a project folder first.';
-        actions.appendChild(projBtn);
-        actions.appendChild(btn('secondary', s.glob === 'linked' ? 'Unlink global' : 'Link globally',
-          () => vscode.postMessage({ type: 'toggleGlobal', name: s.name })));
-        actions.appendChild(btn('secondary', 'Preview', () => vscode.postMessage({ type: 'preview', name: s.name })));
-        card.appendChild(actions);
-        wrap.appendChild(card);
-      }
-      mainEl.appendChild(wrap);
+      if (tab === 'project') return renderProjectMain();
+      const list = visible(state.skills);
+      if (!list.length) { mainEl.appendChild(emptyEl('No skills match.')); return; }
+      mainEl.appendChild(buildList(list));
+    }
+
+    // Project view: everything linked here, split into Local (this project only) and
+    // Global (linked globally, active in every project - wins over a local link).
+    function renderProjectMain() {
+      const base = visible(projectSkills());
+      const localList = base.filter((s) => isLocal(s) && !isGlobal(s));
+      const globalList = base.filter(isGlobal);
+      section(true, 'Local', state.targetName ? '· ' + state.targetName : '· this project', localList,
+        'No skills linked to this project. Use the Hub tab to link some.');
+      section(false, 'Global', '· all projects', globalList,
+        'No globally-linked skills.');
     }
 
     // ── Shared helpers, injected as REAL function source (not hand-escaped strings) so
@@ -471,7 +550,8 @@ ${markdownClientSource()}
       if (m.type === 'state') {
         state = m.state;
         if (activeCat !== '__all__' && activeCat !== 'Uncategorized' && !state.categories.includes(activeCat)) activeCat = '__all__';
-        renderProj(); renderNav(); if (view === 'list') renderMain();
+        if (tab === 'project' && !state.hasProject) tab = 'hub'; // project closed → fall back
+        renderProj(); applyTabButtons(); renderNav(); if (view === 'list') renderMain();
       } else if (m.type === 'previewContent') {
         preview = { name: m.name, title: m.title, body: m.body };
         view = 'preview'; renderMain();
@@ -520,7 +600,7 @@ ${markdownClientSource()}
     confirmModal.addEventListener('click', (e) => { if (e.target === confirmModal) closeConfirm(); });
     document.addEventListener('keydown', (e) => { if (!confirmModal.hidden && e.key === 'Escape') closeConfirm(); });
 
-    function renderAll() { renderProj(); renderNav(); renderMain(); }
+    function renderAll() { renderProj(); applyTabButtons(); renderNav(); renderMain(); }
     renderAll();
     vscode.postMessage({ type: 'ready' });
   </script>

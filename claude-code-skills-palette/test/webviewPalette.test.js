@@ -97,6 +97,14 @@ ok(html.includes('id="confirm-modal"'), 'confirm modal markup present');
   ok(script.includes('aria-pressed'), 'active layout is exposed via aria-pressed');
   ok(html.includes(':focus-visible'), 'visible keyboard-focus styles present');
   ok(script.includes('function normLayout'), 'normLayout shipped into the client (single source)');
+  // Top-level tabs: Hub vs This project, with a Local/Global split in the project view.
+  ok(html.includes('id="tab-hub"') && html.includes('id="tab-project"'), 'Hub / This project tabs present');
+  ok(html.includes('role="tablist"'), 'tabs form an accessible tablist');
+  ok(script.includes('function projectSkills') && script.includes('function tabSkills'), 'tab scoping helpers present');
+  ok(script.includes('function renderProjectMain'), 'project view renderer present');
+  ok(script.includes('isLocal(s) && !isGlobal(s)'), 'a globally-linked skill is shown only under Global, not Local');
+  ok(script.includes("projTabBtn.disabled = !state.hasProject"), 'project tab is disabled without an open project');
+  ok(script.includes('aria-selected'), 'active tab is exposed via aria-selected');
 }
 
 // computeState carries a normalised layout on every push (so a refresh never drops it).
