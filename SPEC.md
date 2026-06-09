@@ -13,6 +13,7 @@
 1. **טופולוגיית התוסף: תוסף נפרד חדש** (`skills-palette`) לצד `agentville-launcher` הקיים — לא איחוד. מחיר: שני תוספים מזריקים לאותו `webview/index.js`, ולכן נדרש fixture-coexistence משולש + קריטריון runtime (סעיפים 10-R7, 12-Phase 1).
 2. **מקור קטגוריות: manifest JSON אחד ב-hub** (`SkillsHub\skills-categories.json`) — סעיף 6.
 3. **multi-window: להטמיע את ה-workspace ב-deep-link** — ה-URI נושא `?ws=<path>`, וה-`UriHandler` מחבר לפרויקט שממנו נלחץ הכפתור, לא ל-window שרירותי (סעיפים 2-Flow A, 3.2, 9).
+4. **UI הפלטה: Webview (הכרעה סופית אחרי בנייה).** ה-QuickPick מומש ראשון כ-MVP אבל לא הספיק - עם הרבה סקילים נדרש סינון אינטראקטיבי לפי קטגוריה (sidebar לחיץ), חיפוש, וכרטיסים, ש-QuickPick לא נותן. לכן ה-UI הראשי הוא **Webview** (`webviewPalette.js`), וה-QuickPick נשאר כ-fallback קל (`skillsPalette.openQuickPick`). פירוט ההכרעה ב-4.1. הערה: תיאורי ה-QuickPick שנותרו בסעיפים 2 / 7 / 9 מתעדים את ה-MVP המקורי; ה-Webview גובר עליהם כ-UI הראשי.
 
 הכרעות נוספות שנגזרו מהסקירה (היו "שאלות פתוחות", נסגרו): פעולת `accept` על פריט = toggle link/unlink לפי state (סעיף 2-Flow C); יצירת junction דרך `fs.symlinkSync(target, path, 'junction')` ב-Node ולא spawn של `cmd /c mklink` (סעיף 4); `publisher: OrBenozio` / `name: skills-palette`.
 
@@ -96,7 +97,7 @@
 │   │ derive title  │   │ linked-state   │   │ rmdir), state read │    │
 │   └──────────────┘   └───────────────┘   └────────────────────┘    │
 │                                                                     │
-│   Injection subsystem (ported מ-agentville verbatim):               │
+│   Injection subsystem (מותאם מ-agentville ל-coexistence, marker-scoped): │
 │   constants.js · injector.js · atomicWrite.js · targets/claude-code.js │
 │   patches Claude's webview/index.js with OUR markers                │
 └─────────────────────────────────────────────────────────────────────┘
@@ -131,7 +132,7 @@
 | UI הפלטה               | **`vscode.window.createQuickPick`** (לא Webview)                                        | ראו 4.1                                                                                                                  |
 | parsing של frontmatter | קורא ידני קל-משקל (regex על בלוק `---`)                                                 | אין צורך בתלות `js-yaml`; ה-frontmatter כאן פשוט (שני שדות מחרוזת). שומר על "אפס תלויות". אם נדרש YAML עשיר — ניתן לשדרג |
 | יצירת junction         | **`fs.symlinkSync(target, link, 'junction')`** (Node native); `mklink /J` כ-fallback מתועד בלבד | אין spawn של `cmd`, אין quoting/stderr-parsing תלוי-locale, error handling מובנה (`err.code`); סימטרי ל-detection שכבר ב-Node fs. `/J` לא דורש admin (סעיף 8). `/link-skill` משתמש ב-`mklink` רק כי הוא PowerShell ואין לו את ה-API — לתוסף ב-Node יש |
-| הזרקה                  | port verbatim של `constants.js`/`injector.js`/`atomicWrite.js`/`targets/claude-code.js` | מנגנון מוכח, coexistence-safe, marker-scoped                                                                             |
+| הזרקה                  | `constants.js`/`atomicWrite.js`/`targets/claude-code.js` נלקחים מ-agentville; **`injector.js` מותאם** ל-dual-coexistence (לא verbatim) | ה-injector חייב markers דו-צדדיים משלו + החלפה in-place (no-op byte-for-byte), אחרת שני התוספים ייכנסו ל-reload-loop. ראו 10-R7 ואת `injector.test.js` (triple-coexistence) |
 | הפצה                   | VSIX → GitHub Releases                                                                  | סקילים `release-vsix-github` + `ship-vscode-extension` קיימים                                                            |
 | icon                   | inline SVG עם `currentColor`                                                            | אמוג'י מרונדר אפור/לא-עקבי ב-webview (לקח מ-reference)                                                                   |
 
@@ -194,7 +195,7 @@ description: "Add, check off, or list ideas... Triggers on 'add an idea', ..., '
 ### 5.3 גזירת כותרת ותקציר נקיים (Phase 1, deterministic)
 
 * **title**: השורה הראשונה בגוף שמתחילה ב-`# `  ← הטקסט אחרי `# ` . אם אין — `name` ב-Title Case עם רווחים במקום מקפים.
-* **summary**: מתוך `description`, קח את הטקסט עד הראשון מבין: `" Triggers on"` / `" Use "` (case-insensitive). חתוך ל-\~100 תווים על גבול-מילה והוסף `…`. **לא** להסתמך על "נקודה+אות גדולה" — שביר על עברית, `e.g.`/`i.e.`, ושמות-קבצים (`index.js`). דוגמאות בפועל: `add-idea` → `"Add, check off, or list ideas in the central ideas document"`; `linkedin-post` (המשפט הראשון ארוך, אין `Use`/`Triggers` מוקדם) → ייחתך ל-~100 תווים. **acceptance:** `hubReader.test.js` מריץ את הגזירה על כל 7 הסקילים הקיימים כ-fixture ומאמת פלט קריא (לא חתוך באמצע מילה, לא trigger-dump).
+* **summary**: מתוך `description`, קח את הטקסט עד הראשון מבין: `" Triggers on"` / `" Use "` (case-insensitive). חתוך ל-\~100 תווים על גבול-מילה והוסף `…`. **לא** להסתמך על "נקודה+אות גדולה" — שביר על עברית, `e.g.`/`i.e.`, ושמות-קבצים (`index.js`). דוגמאות בפועל: `add-idea` → `"Add, check off, or list ideas in the central ideas document"`; `linkedin-post` (המשפט הראשון ארוך, אין `Use`/`Triggers` מוקדם) → ייחתך ל-~100 תווים. **acceptance:** `hubReader.test.js` מריץ את הגזירה על **כל הסקילים הקיימים ב-hub** (דינמי, לא מספר קבוע - ה-hub גדל) ומאמת פלט קריא (לא חתוך באמצע מילה, לא trigger-dump).
 * אופציונלי (Phase 5, polish): אם המשתמש יוסיף שדה `summary:` ל-frontmatter, יקבל קדימות. לא נדרש ל-MVP.
 
 ***
@@ -334,7 +335,7 @@ description: "Add, check off, or list ideas... Triggers on 'add an idea', ..., '
 * `linker.link`: junction דרך `fs.symlinkSync(...'junction')` ב-`<targetFolder>\.claude\skills`, כולל יצירת התיקייה, הכלל של junction-לכל-ה-hub, וההגנה הרקורסיבית על `.claude`/root (סעיף 7).
 * `OutputChannel('Skills Palette')` + status-bar item + command `skillsPalette.open` (fallback).
 * **`injector.test.js` עם fixture משולש** (NONSTOP + agentville + skills-palette) + round-trip inject→strip→re-inject.
-* `hubReader.test.js`: גזירת title/summary על כל 7 הסקילים.
+* `hubReader.test.js`: גזירת title/summary על כל הסקילים הקיימים ב-hub (דינמי).
 
 **קריטריון יציאה:** (1) מהפאנל — פתיחת פלטה, בחירת סקיל, junction תקין נוצר ב-`.claude\skills`; (2) **runtime coexistence**: agentville + skills-palette מותקנים יחד, **אין reload-loop**, שני הכפתורים חיים ב-`#orb-tools` אחרי reload יחיד; (3) ה-fallback עובד.
 
@@ -348,7 +349,7 @@ description: "Add, check off, or list ideas... Triggers on 'add an idea', ..., '
 ### Phase 3 — מצב "מחובר" + unlink
 
 * חישוב `linkedToProject` והצגת ✓ + תקציר "מחובר".
-* item button / choice ל-unlink (`cmd /c rmdir`), עם רענון state בפלטה הפתוחה.
+* item button / choice ל-unlink דרך `fs.rmdirSync` (Node native, עם fallback ל-`fs.unlinkSync`; שניהם מסירים רק את ה-reparse-point ולא תוכן ב-hub), עם רענון state בפלטה הפתוחה.
 * בחירת workspace folder כשפתוחות כמה.
 
 **קריטריון יציאה:** סקילים מחוברים מסומנים; unlink מסיר רק את ה-junction של הסקיל; הפלטה מתעדכנת בלי להיסגר.
@@ -380,7 +381,7 @@ skills-palette/
   src/
     extension.js               # activate: register UriHandler+command+statusBar FIRST, then inject
     constants.js               # markers ייחודיים + BACKUP_SUFFIX = ".skills-palette-backup"
-    injector.js                # port verbatim
+    injector.js                # מותאם מ-agentville: marker-scoped, in-place replace (coexistence)
     atomicWrite.js             # port verbatim
     targets/claude-code.js     # port verbatim
     statusBar.js               # $(list-unordered) Skills → skillsPalette.open
