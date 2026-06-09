@@ -8,7 +8,7 @@
 
 הורד את ה-VSIX האחרון מהקישור הקבוע:
 
-https://github.com/orbenozio/skills-palette/releases/latest/download/skills-palette.vsix
+https://github.com/orbenozio/claude-code-skills-palette/releases/latest/download/claude-code-skills-palette.vsix
 
 ואז ב-VSCode: **Extensions → ⋯ → Install from VSIX…** → בחר את הקובץ → Reload. (התקנת VSIX לא מתעדכנת אוטומטית — שדרוג = הורדה והתקנה מחדש.)
 
@@ -17,14 +17,14 @@ https://github.com/orbenozio/skills-palette/releases/latest/download/skills-pale
 הפאנל של Claude הוא webview ב-sandbox שאי אפשר להריץ בו תהליכים. לכן:
 
 - התוסף **מזריק** סקריפט קטן ל-`webview/index.js` של Claude שמצייר כפתור בתוך הסרגל המשותף `#orb-tools` (לצד agentville ו-NONSTOP, עם markers ייחודיים כדי לא לדרוך אחד על השני).
-- לחיצה על הכפתור יורה deep link `vscode://orbenozio.skills-palette/open?ws=<path>` אל ה-`UriHandler` של התוסף.
+- לחיצה על הכפתור יורה deep link `vscode://orbenozio.claude-code-skills-palette/open?ws=<path>` אל ה-`UriHandler` של התוסף.
 - ה-`UriHandler` פותח `QuickPick` עם כל הסקילים; `Enter` על פריט מחבר/מנתק את הסקיל לפרויקט; כפתורי הפריט מאפשרים חיבור גלובלי ופתיחת ה-SKILL.md.
 - אם ה-deep link חסום — יש פריט status-bar ו-command `Skills Palette: Open` שעושים בדיוק אותו דבר.
 
 ## התקנה (dev)
 
 ```powershell
-Copy-Item -Recurse .\skills-palette "$env:USERPROFILE\.vscode\extensions\orbenozio.skills-palette-0.1.0"
+Copy-Item -Recurse .\claude-code-skills-palette "$env:USERPROFILE\.vscode\extensions\orbenozio.claude-code-skills-palette-0.1.0"
 ```
 
 ואז: `Developer: Reload Window`. בהפעלה הראשונה התוסף יזריק את הכפתור ויציע לטעון מחדש את חלון Claude כדי שהכפתור יופיע. אין build step ואין תלויות runtime — VSCode + Node בלבד.
@@ -45,7 +45,7 @@ C:\Users\orben\OneDrive\DEV\Agents\SkillsHub\skills-categories.json
 npm test
 ```
 
-- `test/injector.test.js` — coexistence משולש (NONSTOP + agentville + skills-palette) + idempotency + in-place.
+- `test/injector.test.js` — coexistence משולש (NONSTOP + agentville + claude-code-skills-palette) + idempotency + in-place.
 - `test/hubReader.test.js` — גזירת title/summary על כל הסקילים האמיתיים + מיזוג קטגוריות.
 - `test/linker.test.js` — יצירה/זיהוי/הסרה של junction מול junctions אמיתיים, כולל יעד תחת OneDrive וה-guard הרקורסיבי.
 

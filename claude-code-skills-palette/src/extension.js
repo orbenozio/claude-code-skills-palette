@@ -18,11 +18,11 @@ let lastFocusCheck = 0;
 const FOCUS_REINJECT_THROTTLE_MS = 30000;
 
 function getConfig() {
-  return vscode.workspace.getConfiguration('skillsPalette');
+  return vscode.workspace.getConfiguration('claudeCodeSkillsPalette');
 }
 
 function loadWebviewScript(context) {
-  const p = path.join(context.extensionPath, 'webview', 'skills-palette.js');
+  const p = path.join(context.extensionPath, 'webview', 'claude-code-skills-palette.js');
   return fs.readFileSync(p, 'utf8');
 }
 
@@ -125,9 +125,9 @@ function registerFocusReinject(context) {
 
 function handleVersionUpgrade(context) {
   const version = context.extension.packageJSON.version;
-  const stored = context.globalState.get('skillsPalette.installedVersion');
+  const stored = context.globalState.get('claudeCodeSkillsPalette.installedVersion');
   if (stored && stored !== version) checkAndInject(context, { interactive: false });
-  context.globalState.update('skillsPalette.installedVersion', version);
+  context.globalState.update('claudeCodeSkillsPalette.installedVersion', version);
 }
 
 function offerReload() {
@@ -168,8 +168,8 @@ function open(context, wsPath, desiredOn) {
     output: output.get(vscode),
     getTargetFolder: () => resolveTargetFolder(wsPath),
     desiredOn, // true/false from the footer button's lit state; undefined = plain toggle
-    layout: context.globalState.get('skillsPalette.layout', 'grid'),
-    saveLayout: (v) => context.globalState.update('skillsPalette.layout', v),
+    layout: context.globalState.get('claudeCodeSkillsPalette.layout', 'grid'),
+    saveLayout: (v) => context.globalState.update('claudeCodeSkillsPalette.layout', v),
   });
 }
 
@@ -189,21 +189,21 @@ function activate(context) {
   statusBar.create(vscode, context);
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('skillsPalette.open', () => open(context, null)),
-    vscode.commands.registerCommand('skillsPalette.openQuickPick', () => openQuickPick(context, null)),
-    vscode.commands.registerCommand('skillsPalette.checkAndInject', () => {
+    vscode.commands.registerCommand('claudeCodeSkillsPalette.open', () => open(context, null)),
+    vscode.commands.registerCommand('claudeCodeSkillsPalette.openQuickPick', () => openQuickPick(context, null)),
+    vscode.commands.registerCommand('claudeCodeSkillsPalette.checkAndInject', () => {
       const r = checkAndInject(context, { interactive: true });
       if (r.changed > 0) offerReload();
       else vscode.window.showInformationMessage(`Skills Palette: nothing to update (${r.targets} target(s) already current).`);
     }),
-    vscode.commands.registerCommand('skillsPalette.removeInjection', () => {
+    vscode.commands.registerCommand('claudeCodeSkillsPalette.removeInjection', () => {
       const n = removeInjection();
       vscode.window.showInformationMessage(`Skills Palette: removed injection from ${n} target(s). Reload to apply.`);
     }),
   );
 
   // The footer button's vscode: deep link arrives here:
-  //   vscode://orbenozio.skills-palette/open?ws=<encoded path>
+  //   vscode://orbenozio.claude-code-skills-palette/open?ws=<encoded path>
   context.subscriptions.push(
     vscode.window.registerUriHandler({
       handleUri(uri) {
@@ -225,10 +225,10 @@ function activate(context) {
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('skillsPalette.autoInject')) {
+      if (e.affectsConfiguration('claudeCodeSkillsPalette.autoInject')) {
         try { checkAndInject(context, { interactive: false }); } catch (err) { console.error('[SkillsPalette]', err); }
       }
-      if (e.affectsConfiguration('skillsPalette.reinjectCheckHours')) {
+      if (e.affectsConfiguration('claudeCodeSkillsPalette.reinjectCheckHours')) {
         scheduleReinject(context);
       }
     }),

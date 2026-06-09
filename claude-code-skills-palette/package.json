@@ -1,5 +1,5 @@
 {
-  "name": "skills-palette",
+  "name": "claude-code-skills-palette",
   "displayName": "Skills Palette",
   "description": "A button in the Claude Code panel that opens a categorized palette of your Skills Hub skills and links any of them into the current project in one click.",
   "version": "0.1.0",
@@ -8,7 +8,7 @@
   "icon": "icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/orbenozio/skills-palette.git"
+    "url": "https://github.com/orbenozio/claude-code-skills-palette.git"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -31,31 +31,31 @@
   "contributes": {
     "commands": [
       {
-        "command": "skillsPalette.open",
+        "command": "claudeCodeSkillsPalette.open",
         "title": "Skills Palette: Open"
       },
       {
-        "command": "skillsPalette.openQuickPick",
+        "command": "claudeCodeSkillsPalette.openQuickPick",
         "title": "Skills Palette: Open (QuickPick)"
       },
       {
-        "command": "skillsPalette.checkAndInject",
+        "command": "claudeCodeSkillsPalette.checkAndInject",
         "title": "Skills Palette: Add button to Claude panel (inject)"
       },
       {
-        "command": "skillsPalette.removeInjection",
+        "command": "claudeCodeSkillsPalette.removeInjection",
         "title": "Skills Palette: Remove button from Claude panel"
       }
     ],
     "configuration": {
       "title": "Skills Palette",
       "properties": {
-        "skillsPalette.autoInject": {
+        "claudeCodeSkillsPalette.autoInject": {
           "type": "boolean",
           "default": true,
           "description": "Automatically add the Skills Palette button to the Claude Code panel on startup and re-add it after Claude updates."
         },
-        "skillsPalette.reinjectCheckHours": {
+        "claudeCodeSkillsPalette.reinjectCheckHours": {
           "type": "number",
           "default": 6,
           "minimum": 0,

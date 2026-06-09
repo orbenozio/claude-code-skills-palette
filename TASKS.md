@@ -18,12 +18,12 @@
 
 ### Phase 5 — ליטוש והפצה
 - [x] `icon.png` לתוסף + שדה `icon` ב-package.json (אייקון תקע)
-- [x] אריזת VSIX + GitHub Release ציבורי (`orbenozio/skills-palette`, tag `v0.1.0`) עם asset בשם קבוע `skills-palette.vsix` — קישור always-latest פעיל
+- [x] אריזת VSIX + GitHub Release ציבורי (`orbenozio/claude-code-skills-palette`, tag `v0.1.0`) עם asset בשם קבוע `claude-code-skills-palette.vsix` — קישור always-latest פעיל
 - [ ] `FileSystemWatcher` על ה-hub לרענון Webview פתוח כשמשתנים סקילים/manifest
 - [ ] להחליט על labels סופיים לקטגוריות / האם להציב manifest התחלתי ב-hub
 - [ ] (אופציונלי) `defaultScope: global` במניפסט לסקילים מערכתיים (שאלה פתוחה ב-SPEC §11)
 
-> שדרוג עתידי: bump גרסה → `vsce package` → `gh release create vX.Y.Z` → **חובה להעלות מחדש את `skills-palette.vsix` בשם הקבוע** (`gh release upload ... --clobber`) אחרת ה-latest-link נשבר. (סקיל `release-vsix-github`.)
+> שדרוג עתידי: bump גרסה → `vsce package` → `gh release create vX.Y.Z` → **חובה להעלות מחדש את `claude-code-skills-palette.vsix` בשם הקבוע** (`gh release upload ... --clobber`) אחרת ה-latest-link נשבר. (סקיל `release-vsix-github`.)
 
 ### חוב טכני / בדיקות
 - [ ] unit test ל-`resolveTargetFolder` (לוגיקת `?ws=` / focused-window) עם mock ל-vscode
@@ -44,11 +44,11 @@
 - [x] **0b** — `UriHandler` עם `?ws=` + `resolveTargetFolder` (focused-window fallback)
 
 ### Phase 1 — MVP (קוד) + התקנה חיה
-- [x] port תת-מערכת ההזרקה (constants/injector/atomicWrite/targets) עם markers `.skills-palette` ייחודיים
-- [x] `webview/skills-palette.js` — כפתור SVG ב-`#orb-tools` + deep link + workspace discovery
+- [x] port תת-מערכת ההזרקה (constants/injector/atomicWrite/targets) עם markers `.claude-code-skills-palette` ייחודיים
+- [x] `webview/claude-code-skills-palette.js` — כפתור SVG ב-`#orb-tools` + deep link + workspace discovery
 - [x] `hubReader` async — scan + frontmatter + title/summary
 - [x] `extension.js` + `statusBar` + `output` (OutputChannel) + commands
-- [x] dry-run + התקנה חיה ל-`~\.vscode\extensions\orbenozio.skills-palette-0.1.0` + הזרקה (NONSTOP נשמר, backup נוצר) — `18fd144`
+- [x] dry-run + התקנה חיה ל-`~\.vscode\extensions\orbenozio.claude-code-skills-palette-0.1.0` + הזרקה (NONSTOP נשמר, backup נוצר) — `18fd144`
 
 ### Phase 2–4 — קוד מומש
 - [x] Phase 2: `hubReader` טוען manifest + grouping לפי קטגוריה
@@ -58,7 +58,7 @@
 ### Webview palette (pivot מ-feedback — QuickPick לא מאפשר סינון-לפי-קטגוריה אינטראקטיבי)
 - [x] `webviewPalette.js` — WebviewPanel: sidebar קטגוריות לחיץ, חיפוש, כרטיסים בצבעי theme — `a47b4fa`
 - [x] message bridge webview↔host + push state; CSP+nonce; user-text דרך textContent
-- [x] extension מנתב ל-Webview; QuickPick נשאר כ-`skillsPalette.openQuickPick`
+- [x] extension מנתב ל-Webview; QuickPick נשאר כ-`claudeCodeSkillsPalette.openQuickPick`
 - [x] תצוגת README מרונדרת **בתוך** ה-Webview (Markdown→HTML בטוח) — לא פותח קובץ — `5b93982`
 - [x] הקצאת קטגוריה מכרטיס (`<select>`) שכותבת ל-`skills-categories.json` (`categoriesManifest.js`, כתיבה אטומית)
 - [x] מודעות global↔project: "Link to project" מושבת לסקיל גלובלי + badge "global · active here"

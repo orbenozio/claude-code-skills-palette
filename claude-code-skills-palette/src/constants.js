@@ -24,7 +24,7 @@ const FOREIGN_MARKERS = [
 ];
 
 // Backup file suffix — distinct from ".nonstop-backup" and ".agentville-backup".
-const BACKUP_SUFFIX = '.skills-palette-backup';
+const BACKUP_SUFFIX = '.claude-code-skills-palette-backup';
 
 // Claude Code extension id and directory prefix.
 const CLAUDE_EXTENSION_ID = 'anthropic.claude-code';

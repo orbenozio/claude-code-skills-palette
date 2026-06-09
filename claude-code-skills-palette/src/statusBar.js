@@ -10,7 +10,7 @@ let statusBarItem;
  */
 function create(vscode, context) {
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  statusBarItem.command = 'skillsPalette.open';
+  statusBarItem.command = 'claudeCodeSkillsPalette.open';
   statusBarItem.text = '$(checklist) Skills';
   statusBarItem.tooltip = 'Open Skills Palette — link a hub skill to this project';
   statusBarItem.show();

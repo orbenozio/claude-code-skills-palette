@@ -10,12 +10,12 @@
 
 לאחר draft + סקירת `spec-reviewer` ו-`architect` (REVIEW), המשתמש הכריע:
 
-1. **טופולוגיית התוסף: תוסף נפרד חדש** (`skills-palette`) לצד `agentville-launcher` הקיים — לא איחוד. מחיר: שני תוספים מזריקים לאותו `webview/index.js`, ולכן נדרש fixture-coexistence משולש + קריטריון runtime (סעיפים 10-R7, 12-Phase 1).
+1. **טופולוגיית התוסף: תוסף נפרד חדש** (`claude-code-skills-palette`) לצד `agentville-launcher` הקיים — לא איחוד. מחיר: שני תוספים מזריקים לאותו `webview/index.js`, ולכן נדרש fixture-coexistence משולש + קריטריון runtime (סעיפים 10-R7, 12-Phase 1).
 2. **מקור קטגוריות: manifest JSON אחד ב-hub** (`SkillsHub\skills-categories.json`) — סעיף 6.
 3. **multi-window: להטמיע את ה-workspace ב-deep-link** — ה-URI נושא `?ws=<path>`, וה-`UriHandler` מחבר לפרויקט שממנו נלחץ הכפתור, לא ל-window שרירותי (סעיפים 2-Flow A, 3.2, 9).
-4. **UI הפלטה: Webview (הכרעה סופית אחרי בנייה).** ה-QuickPick מומש ראשון כ-MVP אבל לא הספיק - עם הרבה סקילים נדרש סינון אינטראקטיבי לפי קטגוריה (sidebar לחיץ), חיפוש, וכרטיסים, ש-QuickPick לא נותן. לכן ה-UI הראשי הוא **Webview** (`webviewPalette.js`), וה-QuickPick נשאר כ-fallback קל (`skillsPalette.openQuickPick`). פירוט ההכרעה ב-4.1. הערה: תיאורי ה-QuickPick שנותרו בסעיפים 2 / 7 / 9 מתעדים את ה-MVP המקורי; ה-Webview גובר עליהם כ-UI הראשי.
+4. **UI הפלטה: Webview (הכרעה סופית אחרי בנייה).** ה-QuickPick מומש ראשון כ-MVP אבל לא הספיק - עם הרבה סקילים נדרש סינון אינטראקטיבי לפי קטגוריה (sidebar לחיץ), חיפוש, וכרטיסים, ש-QuickPick לא נותן. לכן ה-UI הראשי הוא **Webview** (`webviewPalette.js`), וה-QuickPick נשאר כ-fallback קל (`claudeCodeSkillsPalette.openQuickPick`). פירוט ההכרעה ב-4.1. הערה: תיאורי ה-QuickPick שנותרו בסעיפים 2 / 7 / 9 מתעדים את ה-MVP המקורי; ה-Webview גובר עליהם כ-UI הראשי.
 
-הכרעות נוספות שנגזרו מהסקירה (היו "שאלות פתוחות", נסגרו): פעולת `accept` על פריט = toggle link/unlink לפי state (סעיף 2-Flow C); יצירת junction דרך `fs.symlinkSync(target, path, 'junction')` ב-Node ולא spawn של `cmd /c mklink` (סעיף 4); `publisher: OrBenozio` / `name: skills-palette`.
+הכרעות נוספות שנגזרו מהסקירה (היו "שאלות פתוחות", נסגרו): פעולת `accept` על פריט = toggle link/unlink לפי state (סעיף 2-Flow C); יצירת junction דרך `fs.symlinkSync(target, path, 'junction')` ב-Node ולא spawn של `cmd /c mklink` (סעיף 4); `publisher: OrBenozio` / `name: claude-code-skills-palette`.
 
 ***
 
@@ -46,7 +46,7 @@
 ### Flow A — פתיחת הפלטה וחיבור סקיל (הזרימה המרכזית)
 
 1. המשתמש לוחץ על כפתור ה-Skills בפוטר של פאנל Claude.
-2. הסקריפט המוזרק יורה synthesized anchor click ל-`vscode://orbenozio.skills-palette/open?ws=<encoded workspace path>` (ראו 3.2 על אופן גילוי ה-workspace ב-webview ועל ה-fallback).
+2. הסקריפט המוזרק יורה synthesized anchor click ל-`vscode://orbenozio.claude-code-skills-palette/open?ws=<encoded workspace path>` (ראו 3.2 על אופן גילוי ה-workspace ב-webview ועל ה-fallback).
 3. ה-`UriHandler` של ה-extension נקרא, מזהה את ה-workspace מתוך ה-`?ws=` (ובהיעדרו — ה-folder של ה-window הממוקד), סורק את ה-hub ופותח `QuickPick`.
 4. ה-QuickPick מציג את הסקילים מקובצים לפי קטגוריות (separators), כל פריט עם כותרת + תקציר + סימון מצב (מחובר / לא מחובר לפרויקט הנוכחי).
 5. המשתמש בוחר סקיל לא-מחובר → ה-extension יוצר junction תחת `<workspace>\.claude\skills\<skill>` ומציג הודעת הצלחה.
@@ -54,7 +54,7 @@
 
 ### Flow B — fallback מובטח (status bar + command)
 
-* אם ה-deep link נחסם (תלוי build של VSCode), המשתמש לוחץ על פריט ה-status-bar `$(list-unordered) Skills` או מריץ את ה-command `skillsPalette.open` מתוך ה-Command Palette. אותה פעולה בדיוק נפתחת.
+* אם ה-deep link נחסם (תלוי build של VSCode), המשתמש לוחץ על פריט ה-status-bar `$(list-unordered) Skills` או מריץ את ה-command `claudeCodeSkillsPalette.open` מתוך ה-Command Palette. אותה פעולה בדיוק נפתחת.
 
 ### Flow C — סקיל כבר מחובר
 
@@ -80,15 +80,15 @@
 │                 └── [Skills SVG-btn]      ← מוזרק ע"י הכלי הזה       │
 │                         │ click                                      │
 │                         ▼                                            │
-│   synthesized <a> click → vscode://orbenozio.skills-palette/open?ws=<path> │
+│   synthesized <a> click → vscode://orbenozio.claude-code-skills-palette/open?ws=<path> │
 └─────────────────────────┼───────────────────────────────────────────┘
                           │ (env.openExternal)
                           ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Extension host (Node, our extension "skills-palette")               │
+│  Extension host (Node, our extension "claude-code-skills-palette")               │
 │                                                                     │
 │   registerUriHandler ──► open palette                               │
-│   statusBar item + command skillsPalette.open ──► open palette (fallback) │
+│   statusBar item + command claudeCodeSkillsPalette.open ──► open palette (fallback) │
 │                                                                     │
 │   ┌──────────────┐   ┌───────────────┐   ┌────────────────────┐    │
 │   │ hubReader     │   │ paletteUI      │   │ linker             │    │
@@ -108,8 +108,8 @@
 
 ### 3.2 צינור מלא (injection → deep-link → palette → junction)
 
-1. **Injection** — ב-`activate`, ה-extension מאתר את ה-`webview/index.js` הפעיל של Claude (`resolveTargets`) ומזריק בלוק בין markers ייחודיים משלו. הבלוק מכיל את `webview/skills-palette.js` (ה-IIFE שמצייר את הכפתור).
-2. **Deep-link + workspace** — לחיצה על הכפתור יורה `<a href="vscode://orbenozio.skills-palette/open?ws=<encoded>">.click()` (לא `window.open`, לא `location.href` — חסומים ב-sandbox).
+1. **Injection** — ב-`activate`, ה-extension מאתר את ה-`webview/index.js` הפעיל של Claude (`resolveTargets`) ומזריק בלוק בין markers ייחודיים משלו. הבלוק מכיל את `webview/claude-code-skills-palette.js` (ה-IIFE שמצייר את הכפתור).
+2. **Deep-link + workspace** — לחיצה על הכפתור יורה `<a href="vscode://orbenozio.claude-code-skills-palette/open?ws=<encoded>">.click()` (לא `window.open`, לא `location.href` — חסומים ב-sandbox).
    * **אופן גילוי ה-workspace ב-webview:** `webview/index.js` הוא קובץ **יחיד משותף לכל חלונות VSCode** של אותה התקנת Claude — אסור לתבנת לתוכו נתיב סטטי. לכן הסקריפט המוזרק מנסה לגלות את ה-workspace ב-**זמן הקליק** מתוך רמזי ה-DOM של פאנל Claude (למשל title/data-attribute הנושאים את שם/נתיב הפרויקט) ומקודד אותו ל-`?ws=`.
    * **fallback רב-שכבתי (חשוב — מבטיח נכונות גם בלי גילוי):** (א) אם הסקריפט גילה נתיב → `?ws=`; (ב) אחרת ה-URI נשלח בלי `ws`, וה-`UriHandler` נופל ל-workspace של ה-**window הממוקד** (כל חלון רושם UriHandler משלו עם ה-workspace שלו; VSCode מנתב את ה-`vscode://` ל-window הממוקד — וזה ה-window שבו נלחץ הכפתור). שני המסלולים מובילים לפרויקט הנכון; ה-`?ws=` הוא הקשחה מעל ה-routing-by-focus.
 3. **Palette** — ה-`UriHandler` מחשב `targetFolder` (מ-`?ws=` אם תקין ושייך ל-workspace פתוח, אחרת ה-folder של החלון הממוקד) ומפעיל `openPalette(context, targetFolder)`: `hubReader` סורק את ה-hub (async, עם `busy=true` על ה-QuickPick — ראו 7), `linker` קורא את מצב החיבור מול `targetFolder`, `paletteUI` בונה QuickPick עם separators לפי קטגוריה.
@@ -138,7 +138,7 @@
 
 ### 4.1 QuickPick מול Webview — ההכרעה
 
-> **עדכון (אחרי בנייה + feedback):** ההכרעה נבחנה מחדש. ה-QuickPick מומש ראשון (MVP), אבל בפועל עם הרבה סקילים נדרש **סינון אינטראקטיבי לפי קטגוריה** (לחיצה על קטגוריה → רק היא) — דבר ש-QuickPick אינו תומך בו (separators רק מתייגים בתוך רשימה אחת). לכן נבנה **Webview** כפלטה הראשית (`webviewPalette.js`) עם sidebar קטגוריות לחיץ, חיפוש וכרטיסים בצבעי theme, וה-QuickPick נשמר כ-fallback (`skillsPalette.openQuickPick`). שאר השיקולים למטה תקפים כתיעוד ההיסטוריה של ההכרעה.
+> **עדכון (אחרי בנייה + feedback):** ההכרעה נבחנה מחדש. ה-QuickPick מומש ראשון (MVP), אבל בפועל עם הרבה סקילים נדרש **סינון אינטראקטיבי לפי קטגוריה** (לחיצה על קטגוריה → רק היא) — דבר ש-QuickPick אינו תומך בו (separators רק מתייגים בתוך רשימה אחת). לכן נבנה **Webview** כפלטה הראשית (`webviewPalette.js`) עם sidebar קטגוריות לחיץ, חיפוש וכרטיסים בצבעי theme, וה-QuickPick נשמר כ-fallback (`claudeCodeSkillsPalette.openQuickPick`). שאר השיקולים למטה תקפים כתיעוד ההיסטוריה של ההכרעה.
 
 **הכרעה מקורית:** **`QuickPick`** **ל-MVP ולטווח הנראה לעין.** Webview רק אם דרישת UI עשירה תופיע בעתיד.
 
@@ -287,14 +287,14 @@ description: "Add, check off, or list ideas... Triggers on 'add an idea', ..., '
 * **R3 — שינוי במבנה הפוטר של Claude (class prefixes).** הסלקטורים הם `[class*="prefix_"]`, ולא class מלא; עדיין שביר אם Claude ישנה prefixes. ממותן: re-inject loop + status-bar fallback. אותו סיכון שכבר נושאים agentville/NONSTOP.
 * **R4 — זיהוי junction ב-Node לא עקבי (prefix `\\?\`, OneDrive placeholders).** ממותן ע"י אלגוריתם ההשוואה המנורמל בסעיף 7, שהוא **קריטריון יציאה של Phase 0a** ולא fallback. אם עדיין בעייתי — `fsutil reparsepoint query`.
 * **R5 — OneDrive Files-On-Demand** הופך תיקיית סקיל **או את `skills-categories.json`** ל-online-only; קריאה עלולה לחסום על hydration. ממותן ע"י סריקה async + `busy=true` (סעיף 7).
-* **R6 — ריבוי כלים מוזרקים** מתחרים על `webview/index.js`. ממותן ע"י in-place replacement ו-markers ייחודיים; backup suffix ייחודי `.skills-palette-backup`.
-* **R7 — coexistence בין שני התוספים *שלך* (agentville + skills-palette), תרחיש שלא קיים ב-test הנוכחי.** ה-`injector.test.js` של ה-reference מאמת רק ששורת NONSTOP שורדת. עכשיו יהיו שלושה בלוקים + שני re-inject loops עצמאיים (focus 30s + webview 1500ms). אם ה-no-op invariant נשבר (version drift / trailing-whitespace) — **שני התוספים יציעו "Reload Window" לנצח.** ממותן: (א) `injector.test.js` חדש עם fixture **משולש** (NONSTOP+agentville+skills-palette) + round-trip inject→strip→re-inject שמאמת שהבלוקים הזרים שורדים byte-for-byte; (ב) **קריטריון runtime ב-Phase 1**: שני התוספים מותקנים יחד, אין reload-loop, שני הכפתורים חיים אחרי reload יחיד. (חלופה שנדחתה לפי בחירת המשתמש: איחוד לתוסף אחד.)
+* **R6 — ריבוי כלים מוזרקים** מתחרים על `webview/index.js`. ממותן ע"י in-place replacement ו-markers ייחודיים; backup suffix ייחודי `.claude-code-skills-palette-backup`.
+* **R7 — coexistence בין שני התוספים *שלך* (agentville + claude-code-skills-palette), תרחיש שלא קיים ב-test הנוכחי.** ה-`injector.test.js` של ה-reference מאמת רק ששורת NONSTOP שורדת. עכשיו יהיו שלושה בלוקים + שני re-inject loops עצמאיים (focus 30s + webview 1500ms). אם ה-no-op invariant נשבר (version drift / trailing-whitespace) — **שני התוספים יציעו "Reload Window" לנצח.** ממותן: (א) `injector.test.js` חדש עם fixture **משולש** (NONSTOP+agentville+claude-code-skills-palette) + round-trip inject→strip→re-inject שמאמת שהבלוקים הזרים שורדים byte-for-byte; (ב) **קריטריון runtime ב-Phase 1**: שני התוספים מותקנים יחד, אין reload-loop, שני הכפתורים חיים אחרי reload יחיד. (חלופה שנדחתה לפי בחירת המשתמש: איחוד לתוסף אחד.)
 
 ***
 
 ## 11. שאלות פתוחות (Open Questions)
 
-**נסגרו בסבב הסקירה:** (1) multi-select — נפסל `canSelectMany`, נבחר one-click עם פלטה פתוחה ו-item buttons. (2) accept = toggle link/unlink (Flow C). (3) טופולוגיה — תוסף נפרד. (4) קטגוריות — manifest JSON. (5) multi-window — `?ws=` ב-deep-link. (6) junction — `fs.symlinkSync`. (7) publisher/name — `OrBenozio`/`skills-palette`, authority `orbenozio.skills-palette`.
+**נסגרו בסבב הסקירה:** (1) multi-select — נפסל `canSelectMany`, נבחר one-click עם פלטה פתוחה ו-item buttons. (2) accept = toggle link/unlink (Flow C). (3) טופולוגיה — תוסף נפרד. (4) קטגוריות — manifest JSON. (5) multi-window — `?ws=` ב-deep-link. (6) junction — `fs.symlinkSync`. (7) publisher/name — `OrBenozio`/`claude-code-skills-palette`, authority `orbenozio.claude-code-skills-palette`.
 
 **נותרו פתוחות (לא חוסמות MVP):**
 
@@ -322,22 +322,22 @@ description: "Add, check off, or list ideas... Triggers on 'add an idea', ..., '
 
 **Phase 0b — deep-link מגיע ל-host (בלי הזרקה):**
 * extension שלד עם `UriHandler` בלבד שמראה `showInformationMessage('reached host: ws=' + ws)`.
-* בדיקה ע"י הקלדת `vscode://orbenozio.skills-palette/open?ws=...` ב-Run dialog (לא צריך כפתור מוזרק).
+* בדיקה ע"י הקלדת `vscode://orbenozio.claude-code-skills-palette/open?ws=...` ב-Run dialog (לא צריך כפתור מוזרק).
 
 **קריטריון יציאה 0b:** ה-URI (עם וללא `?ws=`) מגיע ל-handler ב-window הנכון; ה-`ws` נקרא נכון.
 
 ### Phase 1 — MVP: כפתור + QuickPick שטוח + חיבור בלחיצה (כל ההזרקה כאן)
 
-* port של תת-מערכת ההזרקה מ-agentville עם markers/backup-suffix ייחודיים (`.skills-palette-backup`).
-* `webview/skills-palette.js`: כפתור Skills (inline SVG, `currentColor`) ב-`#orb-tools`, deep link ל-`/open?ws=` עם גילוי workspace + fallback (סעיף 3.2).
+* port של תת-מערכת ההזרקה מ-agentville עם markers/backup-suffix ייחודיים (`.claude-code-skills-palette-backup`).
+* `webview/claude-code-skills-palette.js`: כפתור Skills (inline SVG, `currentColor`) ב-`#orb-tools`, deep link ל-`/open?ws=` עם גילוי workspace + fallback (סעיף 3.2).
 * `hubReader`: סריקת `SkillsHub\*\SKILL.md` **async** (`fs.promises`, `busy=true`), parse frontmatter, גזירת title+summary (סעיף 5.3).
 * `paletteUI`: QuickPick שטוח (קטגוריה אחת "All Skills"), fuzzy search.
 * `linker.link`: junction דרך `fs.symlinkSync(...'junction')` ב-`<targetFolder>\.claude\skills`, כולל יצירת התיקייה, הכלל של junction-לכל-ה-hub, וההגנה הרקורסיבית על `.claude`/root (סעיף 7).
-* `OutputChannel('Skills Palette')` + status-bar item + command `skillsPalette.open` (fallback).
-* **`injector.test.js` עם fixture משולש** (NONSTOP + agentville + skills-palette) + round-trip inject→strip→re-inject.
+* `OutputChannel('Skills Palette')` + status-bar item + command `claudeCodeSkillsPalette.open` (fallback).
+* **`injector.test.js` עם fixture משולש** (NONSTOP + agentville + claude-code-skills-palette) + round-trip inject→strip→re-inject.
 * `hubReader.test.js`: גזירת title/summary על כל הסקילים הקיימים ב-hub (דינמי).
 
-**קריטריון יציאה:** (1) מהפאנל — פתיחת פלטה, בחירת סקיל, junction תקין נוצר ב-`.claude\skills`; (2) **runtime coexistence**: agentville + skills-palette מותקנים יחד, **אין reload-loop**, שני הכפתורים חיים ב-`#orb-tools` אחרי reload יחיד; (3) ה-fallback עובד.
+**קריטריון יציאה:** (1) מהפאנל — פתיחת פלטה, בחירת סקיל, junction תקין נוצר ב-`.claude\skills`; (2) **runtime coexistence**: agentville + claude-code-skills-palette מותקנים יחד, **אין reload-loop**, שני הכפתורים חיים ב-`#orb-tools` אחרי reload יחיד; (3) ה-fallback עובד.
 
 ### Phase 2 — קטגוריות
 
@@ -375,24 +375,24 @@ description: "Add, check off, or list ideas... Triggers on 'add an idea', ..., '
 ## 13. מבנה קבצים מוצע (ל-implementation, לא קוד)
 
 ```
-skills-palette/
-  package.json                 # publisher OrBenozio, name skills-palette, activationEvents onUri/onStartupFinished, commands, config
+claude-code-skills-palette/
+  package.json                 # publisher OrBenozio, name claude-code-skills-palette, activationEvents onUri/onStartupFinished, commands, config
   icon.png
   src/
     extension.js               # activate: register UriHandler+command+statusBar FIRST, then inject
-    constants.js               # markers ייחודיים + BACKUP_SUFFIX = ".skills-palette-backup"
+    constants.js               # markers ייחודיים + BACKUP_SUFFIX = ".claude-code-skills-palette-backup"
     injector.js                # מותאם מ-agentville: marker-scoped, in-place replace (coexistence)
     atomicWrite.js             # port verbatim
     targets/claude-code.js     # port verbatim
-    statusBar.js               # $(list-unordered) Skills → skillsPalette.open
+    statusBar.js               # $(list-unordered) Skills → claudeCodeSkillsPalette.open
     output.js                  # OutputChannel('Skills Palette') — warnings/errors
     hubReader.js               # async scan + parse + derive title/summary + load categories (core, no vscode)
     linker.js                  # link/unlink/isLinked (fs.symlinkSync 'junction', fs.rmdirSync, normalized detection) — core + thin vscode wrapper
     paletteUI.js               # QuickPick build + separators + item buttons + state refresh (busy, activeItems)
   webview/
-    skills-palette.js          # IIFE: Skills SVG button ב-#orb-tools, deep link /open?ws= + workspace discovery
+    claude-code-skills-palette.js          # IIFE: Skills SVG button ב-#orb-tools, deep link /open?ws= + workspace discovery
   test/
-    injector.test.js           # triple fixture: NONSTOP + agentville + skills-palette survive round-trip
+    injector.test.js           # triple fixture: NONSTOP + agentville + claude-code-skills-palette survive round-trip
     hubReader.test.js          # derive title/summary over all 7 skills, category merge, missing-frontmatter
 ```
 

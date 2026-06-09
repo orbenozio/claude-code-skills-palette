@@ -561,7 +561,7 @@ async function openWebviewPalette(vscode, deps) {
   const hubRoot = hubRootOf(deps);
 
   const panel = vscode.window.createWebviewPanel(
-    'skillsPalette',
+    'claudeCodeSkillsPalette',
     'Skills Palette' + (targetFolder ? ` - ${targetFolder.name}` : ''),
     vscode.ViewColumn.Active,
     { enableScripts: true, retainContextWhenHidden: true },

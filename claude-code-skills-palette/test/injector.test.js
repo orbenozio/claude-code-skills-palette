@@ -21,7 +21,7 @@ const agentvilleBlock =
   '(function(){/*agentville*/})();\n' +
   '// <<< Agentville Launcher (injected) <<<';
 
-const ourBody = '(function(){/*skills-palette*/})();';
+const ourBody = '(function(){/*claude-code-skills-palette*/})();';
 
 // Base file already carrying BOTH foreign blocks (the new, untested-before scenario).
 const base =
@@ -32,16 +32,16 @@ const v1 = inj.inject(base, '0.1.0', ourBody);
 ok(v1.includes('Claude Code Nonstop (injected)'), 'nonstop survived inject');
 ok(v1.includes('Agentville Launcher (injected)'), 'agentville survived inject');
 ok(inj.hasValidInjection(v1, '0.1.0'), 'our block valid');
-ok(inj.findBlocks(v1).length === 1, 'exactly one skills-palette block');
+ok(inj.findBlocks(v1).length === 1, 'exactly one claude-code-skills-palette block');
 
 // 2) Idempotent — re-injecting same version+body is a byte-for-byte no-op.
 ok(inj.inject(v1, '0.1.0', ourBody) === v1, 'idempotent re-inject (no reload loop)');
 
 // 3) Version/body bump replaces ONLY our block; both foreign blocks intact & unmoved.
-const v3 = inj.inject(v1, '0.2.0', '(function(){/*skills-palette v2*/})();');
+const v3 = inj.inject(v1, '0.2.0', '(function(){/*claude-code-skills-palette v2*/})();');
 ok(inj.findBlocks(v3).length === 1, 'still one block after bump');
 ok(inj.hasValidInjection(v3, '0.2.0'), 'bumped block valid');
-ok(v3.includes('skills-palette v2') && !v3.includes('/*skills-palette*/'), 'body replaced in place');
+ok(v3.includes('claude-code-skills-palette v2') && !v3.includes('/*claude-code-skills-palette*/'), 'body replaced in place');
 ok(v3.includes(nonstopBlock), 'nonstop byte-identical after bump');
 ok(v3.includes(agentvilleBlock), 'agentville byte-identical after bump');
 

@@ -14,7 +14,7 @@
   window.__SKILLS_PALETTE_ACTIVE__ = true;
 
   // Authority MUST equal the manifest's "<publisher>.<name>" lowercased.
-  var BASE_URI = 'vscode://orbenozio.skills-palette/open';
+  var BASE_URI = 'vscode://orbenozio.claude-code-skills-palette/open';
 
   var FOOTER_SEL = '[class*="inputFooter_"]';
   var MODE_BTN_SEL = '[class*="footerButtonPrimary_"]';
@@ -72,17 +72,17 @@
   }
 
   function ensureStyle() {
-    if (document.getElementById('skills-palette-style')) return;
+    if (document.getElementById('claude-code-skills-palette-style')) return;
     var st = document.createElement('style');
-    st.id = 'skills-palette-style';
+    st.id = 'claude-code-skills-palette-style';
     st.textContent =
-      '#skills-palette-btn{background:transparent;border:none;cursor:pointer;' +
+      '#claude-code-skills-palette-btn{background:transparent;border:none;cursor:pointer;' +
       'padding:3px 6px;line-height:0;vertical-align:middle;border-radius:6px;' +
       'color:#8a8a8a;opacity:.6;transition:color .15s,opacity .15s,background .15s;}' +
-      '#skills-palette-btn svg{display:block;width:18px;height:18px;}' +
-      '#skills-palette-btn:hover{opacity:1;color:#6ea8fe;background:rgba(110,168,254,.16);}' +
-      '#skills-palette-btn.on{opacity:1;color:#6ea8fe;background:rgba(110,168,254,.22);}' +
-      '#skills-palette-btn:active{transform:scale(.92);}';
+      '#claude-code-skills-palette-btn svg{display:block;width:18px;height:18px;}' +
+      '#claude-code-skills-palette-btn:hover{opacity:1;color:#6ea8fe;background:rgba(110,168,254,.16);}' +
+      '#claude-code-skills-palette-btn.on{opacity:1;color:#6ea8fe;background:rgba(110,168,254,.22);}' +
+      '#claude-code-skills-palette-btn:active{transform:scale(.92);}';
     document.head.appendChild(st);
   }
 
@@ -92,7 +92,7 @@
   // its editor tab can't notify the button; the next click re-syncs.)
   var paletteOn = false;
   function applyLit() {
-    var b = document.getElementById('skills-palette-btn');
+    var b = document.getElementById('claude-code-skills-palette-btn');
     if (b) {
       if (paletteOn) b.classList.add('on'); else b.classList.remove('on');
       b.setAttribute('aria-pressed', paletteOn ? 'true' : 'false');
@@ -115,9 +115,9 @@
   }
 
   function injectButton() {
-    if (document.getElementById('skills-palette-btn')) {
+    if (document.getElementById('claude-code-skills-palette-btn')) {
       var bar0 = ensureToolbar();
-      var btn0 = document.getElementById('skills-palette-btn');
+      var btn0 = document.getElementById('claude-code-skills-palette-btn');
       if (bar0 && btn0 && btn0.parentNode !== bar0) bar0.appendChild(btn0);
       return;
     }
@@ -126,7 +126,7 @@
     ensureStyle();
 
     var btn = document.createElement('button');
-    btn.id = 'skills-palette-btn';
+    btn.id = 'claude-code-skills-palette-btn';
     btn.type = 'button';
     btn.title = 'Open Skills Palette — link a skill from your hub to this project';
     btn.setAttribute('aria-label', 'Open Skills Palette');
