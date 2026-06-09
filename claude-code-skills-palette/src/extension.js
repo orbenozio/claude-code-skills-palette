@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const vscode = require('vscode');
 
 const { BACKUP_SUFFIX, FOREIGN_MARKERS } = require('./constants');
@@ -19,6 +20,22 @@ const FOCUS_REINJECT_THROTTLE_MS = 30000;
 
 function getConfig() {
   return vscode.workspace.getConfiguration('claudeCodeSkillsPalette');
+}
+
+/**
+ * The Skills Hub root to read skills from. User-configurable via the
+ * `claudeCodeSkillsPalette.hubPath` setting; supports a leading `~` (home folder)
+ * and `${env:VAR}` substitution. Returns undefined when unset, so hubReader falls
+ * back to its neutral default (`~/.claude/SkillsHub`).
+ */
+function resolveHubRoot() {
+  let p = (getConfig().get('hubPath') || '').trim();
+  if (!p) return undefined;
+  p = p.replace(/\$\{env:([^}]+)\}/g, (_, v) => process.env[v] || '');
+  if (p === '~' || p.startsWith('~/') || p.startsWith('~\\')) {
+    p = path.join(os.homedir(), p.slice(1));
+  }
+  return path.resolve(p);
 }
 
 function loadWebviewScript(context) {
@@ -167,6 +184,8 @@ function open(context, wsPath, desiredOn) {
   return openWebviewPalette(vscode, {
     output: output.get(vscode),
     getTargetFolder: () => resolveTargetFolder(wsPath),
+    hubRoot: resolveHubRoot(),
+    resolveHubRoot, // lets the in-panel Settings re-resolve after the user changes the hub folder
     desiredOn, // true/false from the footer button's lit state; undefined = plain toggle
     layout: context.globalState.get('claudeCodeSkillsPalette.layout', 'grid'),
     saveLayout: (v) => context.globalState.update('claudeCodeSkillsPalette.layout', v),
@@ -178,6 +197,7 @@ function openQuickPick(context, wsPath) {
   return openPalette(vscode, {
     output: output.get(vscode),
     getTargetFolder: () => resolveTargetFolder(wsPath),
+    hubRoot: resolveHubRoot(),
   });
 }
 

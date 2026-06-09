@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+- Configurable Skills Hub folder: set it from inside the palette via a new gear (settings) button in the header - Browse to a folder or paste a path. No more editing settings.json by hand.
+- New `claudeCodeSkillsPalette.hubPath` setting (supports a leading `~` and `${env:VAR}`); leave it empty to use the default `~/.claude/SkillsHub`.
+- Neutral default hub derived from your home folder, so the extension works for any user out of the box (no machine-specific path baked in).
+- Actionable empty state: when no hub is set or it is empty, the palette shows a clear prompt with a 'Set hub folder...' button instead of a blank list.
+
 ## 0.2.0
 - Two top-level view tabs in the palette: 'Hub' (the whole hub, as before) and 'This project' (only what is linked here).
 - The project view splits its skills into a 'Local' section (linked to this project only) and a 'Global' section (linked globally, active in every project); a skill linked both ways shows only under Global.

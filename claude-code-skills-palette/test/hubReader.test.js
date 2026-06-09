@@ -135,8 +135,17 @@ const man = require('../src/categoriesManifest.js');
 })().catch((e) => { console.error(e); process.exit(1); });
 
 // ── Integration: real hub scan over all skills ─────────────────────────────────
+// Scans an actual hub when one is available. The default hub (~/.claude/SkillsHub)
+// is machine-specific, so point at a known hub via SKILLS_HUB_TEST; when no hub is
+// present (e.g. a clean checkout / CI), the block self-skips instead of failing.
 (async () => {
-  const { skills, warnings } = await hub.scan();
+  const testHub = process.env.SKILLS_HUB_TEST;
+  const { skills, warnings } = await hub.scan(testHub ? { hubRoot: testHub } : {});
+  if (skills.length === 0) {
+    console.log(`\n  (skipped real-hub integration: no skills at "${testHub || hub.DEFAULT_HUB}")`);
+    console.log(`\n✅ hubReader: ${passed} assertions passed`);
+    return;
+  }
   ok(skills.length >= 7, `found >=7 skills (got ${skills.length})`);
 
   for (const s of skills) {

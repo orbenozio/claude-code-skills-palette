@@ -52,6 +52,16 @@ ok(scriptMatch[1].includes('function mdToHtml'), 'markdown renderer present');
 ok(scriptMatch[1].includes('function categorySelect'), 'category selector present');
 ok(scriptMatch[1].includes("coveredByGlobal"), 'global-covers-project logic present');
 
+// In-panel Settings for the Skills Hub folder: a gear button, the settings modal,
+// and the browse/save wiring (so the hub path is configurable from the UI, not only
+// from VS Code settings.json).
+ok(html.includes('id="open-settings"'), 'settings (gear) button present in header');
+ok(html.includes('id="settings-modal"'), 'settings modal present');
+ok(html.includes('id="settings-browse"'), 'settings has a Browse button');
+ok(scriptMatch[1].includes('function openSettings'), 'openSettings wired');
+ok(scriptMatch[1].includes("type: 'browseHub'") && scriptMatch[1].includes("type: 'setHub'"), 'browse/save post messages wired');
+ok(scriptMatch[1].includes('function hubEmptyState'), 'actionable empty-hub state present');
+
 // ── Markdown renderer security (the README preview path) ───────────────────────
 // Attribute-breakout via a link URL containing a quote must NOT inject attributes.
 {

@@ -13,8 +13,12 @@
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
+const os = require('os');
 
-const DEFAULT_HUB = 'C:\\Users\\orben\\OneDrive\\DEV\\Agents\\SkillsHub';
+// Neutral default so the extension works for any user out of the box. Override via
+// the `claudeCodeSkillsPalette.hubPath` setting to point a hub elsewhere (e.g. a
+// OneDrive/Dropbox-synced folder).
+const DEFAULT_HUB = path.join(os.homedir(), '.claude', 'SkillsHub');
 const MANIFEST_NAME = 'skills-categories.json';
 const UNCATEGORIZED = 'Uncategorized';
 

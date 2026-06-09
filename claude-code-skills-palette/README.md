@@ -39,6 +39,27 @@ https://github.com/orbenozio/claude-code-skills-palette/releases/latest/download
 
 Then in VSCode: **Extensions -> ... -> Install from VSIX...** -> pick the file -> Reload. (A VSIX install does not auto-update - upgrading means downloading and installing again.)
 
+## Configure your Skills Hub
+
+The palette reads skills from one folder - your **Skills Hub** - where each skill is a sub-folder containing a `SKILL.md`. Point it at that folder from inside the palette:
+
+1. Open the palette and click the **gear (⚙) button** in the top-right of the header.
+2. Click **Browse…** and pick your hub folder (or paste a path and click **Save**).
+
+That's it - the skills appear immediately. If the hub is empty or unset, the palette shows a **Set hub folder…** prompt that opens the same dialog.
+
+The setting is stored as `claudeCodeSkillsPalette.hubPath` (so you can also set it via VS Code **Settings** if you prefer). It supports a leading `~` for your home folder and `${env:VAR}` substitution. Leave it empty to use the default `~/.claude/SkillsHub` - just drop your skill folders there and skip the configuration entirely.
+
+A skill folder looks like:
+
+```
+<hub>/
+  my-skill/
+    SKILL.md        # YAML frontmatter with name + description, then the skill body
+  another-skill/
+    SKILL.md
+```
+
 ## How it works
 
 Claude's panel is a sandboxed webview where you cannot spawn processes. So:
@@ -51,10 +72,10 @@ Claude's panel is a sandboxed webview where you cannot spawn processes. So:
 
 ## Categories (optional)
 
-By default all skills show under "Uncategorized". To group them by category, copy [skills-categories.example.json](skills-categories.example.json) into the hub as `skills-categories.json`:
+By default all skills show under "Uncategorized". To group them by category, copy [skills-categories.example.json](skills-categories.example.json) into your hub as `skills-categories.json` (next to the skill folders):
 
 ```
-C:\Users\orben\OneDrive\DEV\Agents\SkillsHub\skills-categories.json
+<hub>/skills-categories.json
 ```
 
 You can also manage categories directly from the palette (add, rename, delete, pin, and assign a skill to a category from its card) - the palette writes the same `skills-categories.json`. A skill not present in the manifest falls back to "Uncategorized" (so a new hub skill shows up immediately, without updating the manifest). An entry with no folder is ignored.

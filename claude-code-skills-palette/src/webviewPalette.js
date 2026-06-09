@@ -92,8 +92,9 @@ function markdownClientSource() {
 }
 
 /** Compute the full state object the webview renders from. */
-async function computeState(deps, targetFolder, layout) {
-  const res = await hubReader.scan(deps.hubRoot ? { hubRoot: deps.hubRoot } : {});
+async function computeState(deps, targetFolder, layout, hubRoot) {
+  const hub = hubRoot || hubRootOf(deps);
+  const res = await hubReader.scan({ hubRoot: hub });
   const projDir = targetFolder ? projectSkillsDir(targetFolder.fsPath) : null;
   const globDir = globalSkillsDir();
   const skills = res.skills.map((s) => ({
@@ -116,6 +117,8 @@ async function computeState(deps, targetFolder, layout) {
     skills,
     layout: normLayout(layout), // every state push carries the layout, so a refresh never drops it
     warnings: res.warnings,
+    hubPath: hub, // shown in the in-panel Settings so the user can see/change where skills come from
+    hubUnreadable: res.warnings.some((w) => /^Cannot read hub/.test(w)),
   };
 }
 
@@ -236,7 +239,14 @@ function renderHtml(state, theNonce, cspSource) {
   .modal input { padding: 6px 8px; color: var(--vscode-input-foreground); background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); border-radius: 4px; }
   .modal input:focus { outline: 1px solid var(--vscode-focusBorder); }
   .modal .row { display: flex; gap: 8px; justify-content: flex-end; }
+  .modal .modal-foot { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
   .modal .msg { font-size: 12px; opacity: .85; line-height: 1.4; }
+  .modal .msg code { background: var(--vscode-textCodeBlock-background, rgba(128,128,128,.15)); padding: .1em .35em; border-radius: 4px; }
+  /* Actionable empty state (no hub configured / hub empty). */
+  .empty-cta { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 24px; max-width: 560px; }
+  .empty-cta .headline { font-size: 14px; font-weight: 600; opacity: .9; }
+  .empty-cta .detail { font-size: 12px; opacity: .7; line-height: 1.5; }
+  .empty-cta code { background: var(--vscode-textCodeBlock-background, rgba(128,128,128,.15)); padding: .1em .35em; border-radius: 4px; word-break: break-all; }
   button.danger { background: var(--vscode-errorForeground, #c0392b); color: #fff; }
   button.danger:hover { filter: brightness(1.12); }
 </style>
@@ -255,6 +265,7 @@ function renderHtml(state, theNonce, cspSource) {
         <button class="vbtn" id="layout-grid" type="button" aria-label="Grid view" title="Grid view"><svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></button>
         <button class="vbtn" id="layout-list" type="button" aria-label="List view" title="List view"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
       </div>
+      <button class="vbtn" id="open-settings" type="button" aria-label="Settings" title="Settings (Skills Hub folder)"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </header>
     <nav id="nav"></nav>
     <main id="main"></main>
@@ -276,6 +287,20 @@ function renderHtml(state, theNonce, cspSource) {
       <div class="row">
         <button class="secondary" id="confirm-cancel">Cancel</button>
         <button class="danger" id="confirm-ok">Delete</button>
+      </div>
+    </div>
+  </div>
+  <div id="settings-modal" class="modal-backdrop" hidden>
+    <div class="modal">
+      <h2>Skills Palette settings</h2>
+      <div class="msg">Skills Hub folder - the directory that holds one sub-folder per skill (each with a <code>SKILL.md</code>). Leave empty to use the default <code>~/.claude/SkillsHub</code>.</div>
+      <input id="settings-hub-input" type="text" placeholder="C:\\path\\to\\your\\SkillsHub" spellcheck="false">
+      <div class="modal-foot">
+        <button class="secondary" id="settings-browse" type="button">Browse…</button>
+        <span class="row">
+          <button class="secondary" id="settings-cancel" type="button">Cancel</button>
+          <button class="primary" id="settings-save" type="button">Save</button>
+        </span>
       </div>
     </div>
   </div>
@@ -504,9 +529,30 @@ function renderHtml(state, theNonce, cspSource) {
       mainEl.appendChild(list.length ? buildList(list) : emptyEl(emptyText));
     }
 
+    // No skills at all in the hub (missing/empty folder) → an actionable prompt to set
+    // the hub, instead of a bare "No skills match." that leaves a new user stuck.
+    function hubEmptyState() {
+      const box = document.createElement('div'); box.className = 'empty-cta';
+      const h = document.createElement('div'); h.className = 'headline';
+      h.textContent = state.hubUnreadable ? 'Skills Hub folder not found' : 'No skills in your Skills Hub yet';
+      box.appendChild(h);
+      const d = document.createElement('div'); d.className = 'detail';
+      d.textContent = state.hubUnreadable
+        ? 'Point the palette at the folder where your skills live (one sub-folder per skill, each with a SKILL.md), then they show up here.'
+        : 'Add skill folders to your hub, or point the palette at a different folder.';
+      box.appendChild(d);
+      const p = document.createElement('div'); p.className = 'detail';
+      const lbl = document.createElement('span'); lbl.textContent = 'Current hub: '; p.appendChild(lbl);
+      const code = document.createElement('code'); code.textContent = state.hubPath || '(default)'; p.appendChild(code);
+      box.appendChild(p);
+      box.appendChild(btn('primary', 'Set hub folder…', openSettings));
+      return box;
+    }
+
     function renderMain() {
       mainEl.textContent = '';
       if (view === 'preview') return renderPreview();
+      if (!state.skills.length) { mainEl.appendChild(hubEmptyState()); return; }
       if (tab === 'project') return renderProjectMain();
       const list = visible(state.skills);
       if (!list.length) { mainEl.appendChild(emptyEl('No skills match.')); return; }
@@ -555,6 +601,12 @@ ${markdownClientSource()}
       } else if (m.type === 'previewContent') {
         preview = { name: m.name, title: m.title, body: m.body };
         view = 'preview'; renderMain();
+      } else if (m.type === 'hubChanged') {
+        // The host applied a new hub folder (via Browse or Save). Reflect it in the
+        // settings field and close the modal; the refreshed skill list follows in a
+        // separate 'state' message.
+        if (typeof m.hubPath === 'string') settingsInput.value = m.hubPath;
+        closeSettings();
       }
     });
 
@@ -600,6 +652,23 @@ ${markdownClientSource()}
     confirmModal.addEventListener('click', (e) => { if (e.target === confirmModal) closeConfirm(); });
     document.addEventListener('keydown', (e) => { if (!confirmModal.hidden && e.key === 'Escape') closeConfirm(); });
 
+    // ── Settings modal (Skills Hub folder) ────────────────────────────────────────
+    const settingsModal = document.getElementById('settings-modal');
+    const settingsInput = document.getElementById('settings-hub-input');
+    function openSettings() {
+      settingsInput.value = state.hubPath || '';
+      settingsModal.hidden = false;
+      settingsInput.focus(); settingsInput.select();
+    }
+    function closeSettings() { settingsModal.hidden = true; }
+    function saveSettings() { vscode.postMessage({ type: 'setHub', path: settingsInput.value.trim() }); closeSettings(); }
+    document.getElementById('open-settings').addEventListener('click', openSettings);
+    document.getElementById('settings-cancel').addEventListener('click', closeSettings);
+    document.getElementById('settings-save').addEventListener('click', saveSettings);
+    document.getElementById('settings-browse').addEventListener('click', () => vscode.postMessage({ type: 'browseHub' }));
+    settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) closeSettings(); });
+    settingsInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveSettings(); else if (e.key === 'Escape') closeSettings(); });
+
     function renderAll() { renderProj(); applyTabButtons(); renderNav(); renderMain(); }
     renderAll();
     vscode.postMessage({ type: 'ready' });
@@ -611,7 +680,9 @@ ${markdownClientSource()}
 /**
  * Open the webview palette.
  * @param {object} vscode
- * @param {object} deps  { output, getTargetFolder, hubRoot? }
+ * @param {object} deps  { output, getTargetFolder, hubRoot?, resolveHubRoot? }
+ *   resolveHubRoot - re-reads the hubPath setting; called after the in-panel Settings
+ *   changes the hub folder, so the running panel picks up the new location.
  */
 async function openWebviewPalette(vscode, deps) {
   // Reconcile to the footer button's DESIRED state (deps.desiredOn) when provided,
@@ -638,7 +709,6 @@ async function openWebviewPalette(vscode, deps) {
   } finally {
     opening = false;
   }
-  const hubRoot = hubRootOf(deps);
 
   const panel = vscode.window.createWebviewPanel(
     'claudeCodeSkillsPalette',
@@ -651,19 +721,38 @@ async function openWebviewPalette(vscode, deps) {
   // Current skill layout, seeded from the persisted preference. Tracked here so every
   // pushState carries it (a refresh after link/category edits keeps the user's choice).
   let currentLayout = normLayout(deps.layout);
+  // Live hub root: starts from deps, but the user can change it from the in-panel
+  // Settings, so it must be mutable and reflected in every scan this panel does.
+  let currentHubRoot = hubRootOf(deps);
 
   async function pushState() {
-    const state = await computeState(deps, targetFolder, currentLayout);
+    const state = await computeState(deps, targetFolder, currentLayout, currentHubRoot);
     for (const w of state.warnings) output.appendLine(`[scan] ${w}`);
     panel.webview.postMessage({ type: 'state', state });
   }
 
-  const initial = await computeState(deps, targetFolder, currentLayout);
+  // Persist a new hub folder (Global setting), re-resolve it, and refresh the panel.
+  async function applyHub(raw) {
+    const value = (raw || '').trim();
+    try {
+      await vscode.workspace
+        .getConfiguration('claudeCodeSkillsPalette')
+        .update('hubPath', value, vscode.ConfigurationTarget.Global);
+    } catch (e) {
+      output.appendLine(`[settings] hubPath update failed: ${e.message}`);
+    }
+    currentHubRoot = (deps.resolveHubRoot && deps.resolveHubRoot()) || hubReader.DEFAULT_HUB;
+    panel.webview.postMessage({ type: 'hubChanged', hubPath: currentHubRoot });
+    await pushState();
+    vscode.window.showInformationMessage(`Skills Palette: hub set to ${currentHubRoot}`);
+  }
+
+  const initial = await computeState(deps, targetFolder, currentLayout, currentHubRoot);
   for (const w of initial.warnings) output.appendLine(`[scan] ${w}`);
   panel.webview.html = renderHtml(initial, nonce(), panel.webview.cspSource);
 
   async function skillFromHub(name) {
-    const res = await hubReader.scan(deps.hubRoot ? { hubRoot: deps.hubRoot } : {});
+    const res = await hubReader.scan({ hubRoot: currentHubRoot });
     return res.skills.find((x) => x.name === name) || null;
   }
 
@@ -674,6 +763,17 @@ async function openWebviewPalette(vscode, deps) {
       if (msg.type === 'setLayout') {
         currentLayout = normLayout(msg.layout);
         if (deps.saveLayout) deps.saveLayout(currentLayout);
+        return;
+      }
+      if (msg.type === 'browseHub') {
+        const opts = { canSelectFolders: true, canSelectFiles: false, canSelectMany: false, openLabel: 'Use this folder', title: 'Select your Skills Hub folder' };
+        try { if (require('fs').existsSync(currentHubRoot)) opts.defaultUri = vscode.Uri.file(currentHubRoot); } catch (_) { /* best effort */ }
+        const picked = await vscode.window.showOpenDialog(opts);
+        if (picked && picked.length) await applyHub(picked[0].fsPath);
+        return;
+      }
+      if (msg.type === 'setHub') {
+        await applyHub(typeof msg.path === 'string' ? msg.path : '');
         return;
       }
 
@@ -690,29 +790,29 @@ async function openWebviewPalette(vscode, deps) {
         // label '' / 'Uncategorized' clears it; a new label creates the category.
         // The webview collects new-category text via an in-panel modal, so the host
         // no longer needs an InputBox here.
-        manifest.setCategory(hubRoot, msg.name, msg.label || '');
+        manifest.setCategory(currentHubRoot, msg.name, msg.label || '');
         const to = (msg.label && msg.label.trim()) ? msg.label.trim() : 'Uncategorized';
         vscode.window.showInformationMessage(`Moved "${msg.name}" -> ${to}.`);
         await pushState();
         return;
       }
       if (msg.type === 'createCategory') {
-        manifest.createCategory(hubRoot, msg.label || '');
+        manifest.createCategory(currentHubRoot, msg.label || '');
         await pushState();
         return;
       }
       if (msg.type === 'setPinned') {
-        manifest.setPinned(hubRoot, msg.label, !!msg.pinned);
+        manifest.setPinned(currentHubRoot, msg.label, !!msg.pinned);
         await pushState();
         return;
       }
       if (msg.type === 'renameCategory') {
-        manifest.renameCategory(hubRoot, msg.old, msg.label || '');
+        manifest.renameCategory(currentHubRoot, msg.old, msg.label || '');
         await pushState();
         return;
       }
       if (msg.type === 'deleteCategory') {
-        manifest.deleteCategory(hubRoot, msg.label);
+        manifest.deleteCategory(currentHubRoot, msg.label);
         vscode.window.showInformationMessage(`Deleted category "${msg.label}" - its skills are now Uncategorized.`);
         await pushState();
         return;

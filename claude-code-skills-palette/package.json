@@ -2,7 +2,7 @@
   "name": "claude-code-skills-palette",
   "displayName": "Skills Palette",
   "description": "A button in the Claude Code panel that opens a categorized palette of your Skills Hub skills and links any of them into the current project in one click.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "OrBenozio",
   "license": "MIT",
   "icon": "icon.png",
@@ -61,6 +61,11 @@
           "minimum": 0,
           "maximum": 48,
           "description": "How often (hours) to re-check/re-add the button after Claude Code updates (0 = disabled)."
+        },
+        "claudeCodeSkillsPalette.hubPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Absolute path to your Skills Hub folder — the directory that holds one sub-folder per skill (each with a `SKILL.md`). Supports a leading `~` for your home folder and `${env:VAR}` for environment variables. Leave empty to use the default `~/.claude/SkillsHub`."
         }
       }
     }
