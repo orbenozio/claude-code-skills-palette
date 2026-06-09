@@ -1,89 +1,81 @@
 # Skills Palette
 
-כפתור בפוטר של פאנל Claude Code שפותח פלטה ויזואלית של הסקילים שלך מה-Skills Hub המרכזי, מקובצים לפי קטגוריות, ומחבר כל סקיל לפרויקט הנוכחי (או גלובלית) בלחיצה אחת - באמצעות directory junction (אותו מנגנון של `/link-skill`).
+A button in the Claude Code panel footer that opens a visual palette of your skills from the central Skills Hub, grouped by category, and links any skill into the current project (or globally) with one click - via a directory junction (the same mechanism as `/link-skill`).
 
-האיפיון המלא: [../SPEC.md](../SPEC.md).
+Full specification: [../SPEC.md](../SPEC.md).
 
-## מה זה נותן לך
+## What this is for
 
-ה-Skills Hub הוא תיקייה מרכזית אחת שבה כל הסקילים שלך יושבים. הפלטה היא חלון ניהול שמראה את כולם, ומאפשר "להדליק" סקיל לפרויקט שאתה עובד עליו בלי להעתיק קבצים ידנית. החיבור הוא junction, אז עריכה של הסקיל ב-hub משתקפת מיד בכל מקום שהוא מקושר אליו.
+The Skills Hub is one central folder where all your skills live. The palette is a management window that shows them all and lets you "turn on" a skill for the project you are working on, without copying files by hand. The link is a junction, so editing the skill in the hub is reflected immediately everywhere it is linked.
 
-לוחצים על כפתור התקע בפוטר של פאנל Claude, ונפתח חלון הפלטה.
+Click the plug button in the Claude panel footer and the palette window opens.
 
-## מה רואים בפלטה
+## What you see in the palette
 
-- **שני טאבים למעלה:**
-  - **Hub** - כל הסקילים שקיימים ב-hub, בלי קשר לאן הם מקושרים. זה המקום לגלות סקיל ולחבר אותו.
-  - **This project** - רק מה שמקושר לפרויקט הפתוח כרגע, מחולק לשני קטעים:
-    - **Local** - סקילים שמקושרים לפרויקט הזה בלבד.
-    - **Global** - סקילים שמקושרים גלובלית, כלומר פעילים בכל פרויקט אוטומטית.
+- **Two tabs at the top:**
+  - **Hub** - every skill that exists in the hub, regardless of where it is linked. This is the place to discover a skill and link it.
+  - **This project** - only what is linked to the currently open project, split into two sections:
+    - **Local** - skills linked to this project only.
+    - **Global** - skills linked globally, i.e. active in every project automatically.
 
-    סקיל שמקושר גם מקומית וגם גלובלית מופיע רק תחת Global (הגלובלי גובר, כי הוא ממילא זמין בכל מקום). הטאב הזה מושבת כל עוד לא פתוח פרויקט.
+    A skill linked both locally and globally shows only under Global (Global wins, since it is available everywhere anyway). This tab is disabled while no project is open.
 
-- **סרגל קטגוריות בצד** - "All Skills", "Uncategorized", הוספת קטגוריה חדשה, ואז הקטגוריות שלך (אפשר להצמיד לראש, לשנות שם, ולמחוק). הספירות מתעדכנות לפי הטאב הפעיל.
+- **A category sidebar** - "All Skills", "Uncategorized", add a new category, and then your categories (which you can pin to the top, rename, and delete). Counts update according to the active tab.
 
-- **חיפוש** - סינון מיידי לפי שם הסקיל, הכותרת או התקציר.
+- **Search** - instant filtering by skill name, title, or summary.
 
-- **תצוגת Grid / List** - מתג להחלפת פריסת הכרטיסים; הבחירה נשמרת בין פתיחות.
+- **Grid / List layout** - a toggle to switch the card layout; the choice is remembered between opens.
 
-- **כרטיס לכל סקיל** - כותרת, תקציר, תגיות מצב (linked / global / broken), בורר קטגוריה, וכפתורי פעולה:
-  - **Link to project / Unlink from project** - חיבור או ניתוק לפרויקט הנוכחי.
-  - **Link globally / Unlink global** - חיבור או ניתוק גלובלי (לכל הפרויקטים).
-  - **Preview** - תצוגת ה-SKILL.md (Markdown מרונדר) בתוך הפאנל, עם סרגל חזרה דביק.
+- **A card per skill** - title, summary, status badges (linked / global / broken), a category selector, and action buttons:
+  - **Link to project / Unlink from project** - link or unlink for the current project.
+  - **Link globally / Unlink global** - link or unlink globally (for all projects).
+  - **Preview** - render the SKILL.md (Markdown) inside the panel, with a sticky back bar.
 
-## התקנה (תמיד הגרסה האחרונה)
+## Install (always the latest)
 
-הורד את ה-VSIX האחרון מהקישור הקבוע:
+Download the latest VSIX from the permanent link:
 
 https://github.com/orbenozio/claude-code-skills-palette/releases/latest/download/claude-code-skills-palette.vsix
 
-ואז ב-VSCode: **Extensions -> ... -> Install from VSIX...** -> בחר את הקובץ -> Reload. (התקנת VSIX לא מתעדכנת אוטומטית - שדרוג = הורדה והתקנה מחדש.)
+Then in VSCode: **Extensions -> ... -> Install from VSIX...** -> pick the file -> Reload. (A VSIX install does not auto-update - upgrading means downloading and installing again.)
 
-## איך זה עובד
+## How it works
 
-הפאנל של Claude הוא webview ב-sandbox שאי אפשר להריץ בו תהליכים. לכן:
+Claude's panel is a sandboxed webview where you cannot spawn processes. So:
 
-- התוסף **מזריק** סקריפט קטן ל-`webview/index.js` של Claude שמצייר כפתור בתוך הסרגל המשותף `#orb-tools` (לצד agentville ו-NONSTOP, עם markers ייחודיים כדי לא לדרוך אחד על השני).
-- לחיצה על הכפתור יורה deep link `vscode://orbenozio.claude-code-skills-palette/open?ws=<path>` אל ה-`UriHandler` של התוסף.
-- ה-`UriHandler` פותח את **פאנל הפלטה** (webview נפרד שהתוסף שולט בו) עם כל הסקילים, הטאבים, החיפוש והפעולות שתוארו למעלה. החיבור עצמו נעשה ב-host דרך directory junction.
-- הכפתור הוא toggle ונשאר דלוק כל עוד הפלטה פתוחה.
-- אם ה-deep link חסום - יש פריט status-bar ו-command `Skills Palette: Open` שעושים בדיוק אותו דבר. יש גם גרסת QuickPick קלה (`Skills Palette: Open (QuickPick)`) לעבודה מהמקלדת.
+- The extension **injects** a small script into Claude's `webview/index.js` that draws a button inside the shared `#orb-tools` toolbar (alongside agentville and NONSTOP, with unique markers so they do not step on each other).
+- Clicking the button fires a deep link `vscode://orbenozio.claude-code-skills-palette/open?ws=<path>` to the extension's `UriHandler`.
+- The `UriHandler` opens the **palette panel** (a separate webview the extension controls) with all the skills, tabs, search, and actions described above. The link itself is created on the host via a directory junction.
+- The button is a toggle and stays lit while the palette is open.
+- If the deep link is blocked, a status-bar item and the `Skills Palette: Open` command do exactly the same thing. There is also a light QuickPick variant (`Skills Palette: Open (QuickPick)`) for keyboard-driven use.
 
-## קטגוריות (אופציונלי)
+## Categories (optional)
 
-ברירת המחדל מציגה את כל הסקילים תחת "Uncategorized". כדי לקבץ לפי קטגוריות, העתק את [skills-categories.example.json](skills-categories.example.json) אל ה-hub בשם `skills-categories.json`:
+By default all skills show under "Uncategorized". To group them by category, copy [skills-categories.example.json](skills-categories.example.json) into the hub as `skills-categories.json`:
 
 ```
 C:\Users\orben\OneDrive\DEV\Agents\SkillsHub\skills-categories.json
 ```
 
-אפשר גם לנהל קטגוריות ישירות מהפלטה (הוספה, שינוי שם, מחיקה, הצמדה, ושיוך סקיל לקטגוריה מתוך הכרטיס) - הפלטה כותבת את אותו `skills-categories.json`. סקיל שלא מופיע במניפסט נופל ל-"Uncategorized" (כך שסקיל hub חדש מופיע מיד, בלי לעדכן את המניפסט). מזהה שאין לו תיקייה - מתעלמים ממנו.
+You can also manage categories directly from the palette (add, rename, delete, pin, and assign a skill to a category from its card) - the palette writes the same `skills-categories.json`. A skill not present in the manifest falls back to "Uncategorized" (so a new hub skill shows up immediately, without updating the manifest). An entry with no folder is ignored.
 
-## התקנה (dev)
-
-```powershell
-Copy-Item -Recurse .\claude-code-skills-palette "$env:USERPROFILE\.vscode\extensions\orbenozio.claude-code-skills-palette-0.2.0"
-```
-
-ואז: `Developer: Reload Window`. בהפעלה הראשונה התוסף יזריק את הכפתור ויציע לטעון מחדש את חלון Claude כדי שהכפתור יופיע. אין build step ואין תלויות runtime - VSCode + Node בלבד.
-
-## בדיקות
+## Tests
 
 ```powershell
 npm test
 ```
 
-- `test/injector.test.js` - coexistence משולש (NONSTOP + agentville + claude-code-skills-palette) + idempotency + in-place.
-- `test/hubReader.test.js` - גזירת title/summary על כל הסקילים האמיתיים + מיזוג קטגוריות.
-- `test/linker.test.js` - יצירה/זיהוי/הסרה של junction מול junctions אמיתיים, כולל יעד תחת OneDrive וה-guard הרקורסיבי.
-- `test/categoriesManifest.test.js` - קריאה/כתיבה של מניפסט הקטגוריות (הוספה, שינוי שם, מחיקה, הצמדה, שיוך).
-- `test/webviewPalette.test.js` - רינדור ה-HTML של הפאנל, אבטחת ה-Markdown preview, והטאבים Hub / This project.
+- `test/injector.test.js` - triple coexistence (NONSTOP + agentville + claude-code-skills-palette) + idempotency + in-place.
+- `test/hubReader.test.js` - title/summary derivation across all real skills + category merge.
+- `test/linker.test.js` - create/detect/remove a junction against real junctions, including a target under OneDrive and the recursive guard.
+- `test/categoriesManifest.test.js` - read/write of the categories manifest (add, rename, delete, pin, assign).
+- `test/webviewPalette.test.js` - rendering the panel HTML, Markdown-preview security, and the Hub / This project tabs.
 
-## פקודות
+## Commands
 
-| פקודה | מה היא עושה |
+| Command | What it does |
 | --- | --- |
-| `Skills Palette: Open` | פותח את הפלטה (fallback מובטח ל-deep link) |
-| `Skills Palette: Open (QuickPick)` | גרסת QuickPick קלה, מהמקלדת |
-| `Skills Palette: Add button to Claude panel (inject)` | מזריק/מרענן את הכפתור ידנית |
-| `Skills Palette: Remove button from Claude panel` | מסיר רק את הבלוק שלנו מ-`webview/index.js` |
+| `Skills Palette: Open` | Opens the palette (guaranteed fallback for the deep link) |
+| `Skills Palette: Open (QuickPick)` | A light, keyboard-driven QuickPick variant |
+| `Skills Palette: Add button to Claude panel (inject)` | Injects/refreshes the button manually |
+| `Skills Palette: Remove button from Claude panel` | Removes only our block from `webview/index.js` |

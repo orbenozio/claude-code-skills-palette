@@ -1,36 +1,36 @@
 # Skills Palette
 
-תוסף VSCode שמוסיף כפתור לפוטר של פאנל Claude Code, ופותח פלטה ויזואלית לניהול הסקילים שלך מה-Skills Hub המרכזי - גילוי, קיבוץ לפי קטגוריות, וחיבור כל סקיל לפרויקט הנוכחי (או גלובלית) בלחיצה אחת. החיבור נעשה דרך directory junction, אז עריכה של הסקיל ב-hub משתקפת מיד בכל מקום שהוא מקושר אליו.
+A VSCode extension that adds a button to the Claude Code panel footer and opens a visual palette for managing the skills in your central Skills Hub - discover them, group them by category, and link any skill into the current project (or globally) with one click. Linking uses a directory junction, so editing a skill in the hub is reflected immediately everywhere it is linked.
 
-## התקנה
+## Install
 
-הורד את ה-VSIX האחרון מהקישור הקבוע:
+Download the latest VSIX from the permanent link:
 
 https://github.com/orbenozio/claude-code-skills-palette/releases/latest/download/claude-code-skills-palette.vsix
 
-ואז ב-VSCode: **Extensions -> ... -> Install from VSIX...** -> בחר את הקובץ -> Reload Window. (התקנת VSIX לא מתעדכנת אוטומטית - שדרוג = הורדה והתקנה מחדש.)
+Then in VSCode: **Extensions -> ... -> Install from VSIX...** -> pick the file -> Reload Window. (A VSIX install does not auto-update - upgrading means downloading and installing again.)
 
-## מה זה נותן
+## What you get
 
-לוחצים על כפתור התקע בפוטר של פאנל Claude, ונפתח חלון הפלטה. בפלטה:
+Click the plug button in the Claude panel footer and the palette opens. Inside:
 
-- **שני טאבים:**
-  - **Hub** - כל הסקילים שקיימים ב-hub. המקום לגלות סקיל ולחבר אותו.
-  - **This project** - רק מה שמקושר לפרויקט הפתוח, מחולק ל-**Local** (מקושר לפרויקט הזה בלבד) ו-**Global** (מקושר גלובלית, פעיל בכל פרויקט). סקיל שמקושר בשתי הדרכים מופיע רק תחת Global. הטאב מושבת כל עוד לא פתוח פרויקט.
-- **סרגל קטגוריות** עם חיפוש, הצמדה, שינוי שם ומחיקה - והספירות מתעדכנות לפי הטאב הפעיל.
-- **תצוגת Grid / List**, ו-**Preview** של ה-SKILL.md (Markdown מרונדר) בתוך הפאנל.
-- **חיבור / ניתוק** סקיל לפרויקט או גלובלית, ישירות מהכרטיס.
+- **Two tabs:**
+  - **Hub** - every skill in the hub. The place to discover a skill and link it.
+  - **This project** - only what is linked to the open project, split into **Local** (linked to this project only) and **Global** (linked globally, active in every project). A skill linked both ways shows only under Global. The tab is disabled while no project is open.
+- **A category sidebar** with search, pinning, rename and delete - counts are scoped to the active tab.
+- **Grid / List layouts**, and an in-panel **Preview** of the SKILL.md (rendered Markdown).
+- **Link / unlink** a skill to the project or globally, straight from its card.
 
-## איך זה עובד
+## How it works
 
-הפאנל של Claude הוא webview ב-sandbox. התוסף מזריק סקריפט קטן ל-`webview/index.js` של Claude שמצייר את הכפתור בסרגל המשותף `#orb-tools` (חי בשלום לצד agentville ו-NONSTOP). לחיצה יורה deep link אל ה-`UriHandler` של התוסף, שפותח את פאנל הפלטה. אם ה-deep link חסום - יש פריט status-bar ו-command `Skills Palette: Open` כ-fallback מובטח. אין build step ואין תלויות runtime.
+Claude's panel is a sandboxed webview. The extension injects a small script into Claude's `webview/index.js` that draws the button in the shared `#orb-tools` toolbar (coexisting with agentville and NONSTOP). Clicking it fires a deep link to the extension's `UriHandler`, which opens the palette panel. If the deep link is blocked, a status-bar item and the `Skills Palette: Open` command are a guaranteed fallback. There is no build step and no runtime dependencies.
 
-## תיעוד
+## Documentation
 
-- [תיעוד מלא של התוסף](claude-code-skills-palette/README.md) - כל הפעולות, הפקודות, הקטגוריות, וההתקנה ל-dev.
-- [SPEC.md](SPEC.md) - האיפיון המלא.
-- [CHANGELOG](claude-code-skills-palette/CHANGELOG.md) - היסטוריית הגרסאות.
+- [Full extension docs](claude-code-skills-palette/README.md) - all actions, commands, categories, and the dev install.
+- [SPEC.md](SPEC.md) - the full specification.
+- [CHANGELOG](claude-code-skills-palette/CHANGELOG.md) - version history.
 
-## רישיון
+## License
 
 [MIT](claude-code-skills-palette/LICENSE).
