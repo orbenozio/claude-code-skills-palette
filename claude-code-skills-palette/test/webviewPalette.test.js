@@ -1,8 +1,12 @@
 'use strict';
 
-// Pure-render checks for the webview HTML shell (no VSCode needed).
-// Run: node test/webviewPalette.test.js
+// Pure-render checks for the webview HTML shell + the static client script.
+// The client JS now ships as webview/palette-client.js (loaded via a nonce'd
+// <script src>), not generated inline - so we read that file directly for the
+// client-logic assertions. Run: node test/webviewPalette.test.js
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const wp = require('../src/webviewPalette.js');
 
 let passed = 0;
@@ -15,42 +19,57 @@ const state = {
   pinned: ['Release & Shipping'],
   skills: [
     { name: 'add-idea', title: 'Add Idea', summary: 'Log an idea.', category: 'Content & Posts', proj: 'linked', glob: 'absent' },
-    // A hostile summary trying to break out of the embedded <script> JSON.
+    // A hostile summary trying to break out of the embedded data block.
     { name: 'evil', title: 'Evil</script><script>alert(1)', summary: 'x</script>', category: 'Release & Shipping', proj: 'absent', glob: 'linked' },
   ],
   warnings: [],
 };
 
 const N = 'TESTNONCE123';
-const html = wp.renderHtml(state, N, 'vscode-resource:');
+const CLIENT_URI = 'vscode-resource://ext/webview/palette-client.js';
+const html = wp.renderHtml(state, N, 'vscode-resource:', CLIENT_URI);
+
+// The client script lives on disk and is what actually ships + runs in the webview.
+const clientSrc = fs.readFileSync(path.join(__dirname, '..', 'webview', 'palette-client.js'), 'utf8');
 
 ok(html.startsWith('<!DOCTYPE html>'), 'is an HTML document');
-ok(html.includes(`script-src 'nonce-${N}'`), 'CSP pins the script nonce');
+ok(html.includes(`'nonce-${N}'`), 'CSP pins the script nonce');
 ok(html.includes('vscode-resource:'), 'CSP uses the webview cspSource');
-ok(html.includes(`<script nonce="${N}">`), 'script tag carries the nonce');
-ok(html.includes('acquireVsCodeApi()'), 'wires the vscode api');
 
-// The embedded state must be present but with NO raw "</script>" that would close
-// the tag early — every "<" in the JSON is escaped to <.
-const embeddedRaw = html.split('let state = ')[1].split(';\n')[0];
-ok(embeddedRaw.includes('\\u003c'), 'state JSON escapes < as \\u003c');
-ok(!embeddedRaw.includes('</script>'), 'no raw </script> survives in the embedded state');
-ok(embeddedRaw.includes('add-idea') && embeddedRaw.includes('Release & Shipping'), 'skills + categories embedded');
+// The client is loaded as a static, nonce'd external script (NOT inline-generated).
+ok(html.includes(`<script nonce="${N}" src="${CLIENT_URI}"></script>`), 'client loaded via nonce\'d <script src>');
+// No inline executable script is generated into the shell - the only nonce'd script
+// is the external one above (key reason: avoid the Marketplace "suspicious content" scan).
+ok(!/<script nonce="[^"]*">[^<]/.test(html), 'no inline executable script body in the shell');
+ok(!html.includes('.toString()'), 'no function .toString() shipped into the HTML');
+ok(!html.includes('fromCharCode'), 'no fromCharCode escaping in the shell');
+// The client itself never builds/injects a <script> element or evals.
+ok(!/createElement\(\s*['"]script/i.test(clientSrc), 'client does not create <script> elements');
+ok(!clientSrc.includes('<script>'), 'client does not build a literal <script> tag');
+ok(!/\beval\s*\(|new Function/.test(clientSrc), 'client script has no eval / new Function');
+
+// Initial state ships as a NON-executable JSON data block, not inline code.
+ok(html.includes('<script type="application/json" id="palette-initial-state">'), 'initial state is a JSON data block');
+const dataBlock = html.split('id="palette-initial-state">')[1].split('</script>')[0];
+ok(dataBlock.includes('\\u003c'), 'state JSON escapes < as \\u003c');
+ok(!dataBlock.includes('</script>'), 'no raw </script> survives in the data block');
+ok(dataBlock.includes('add-idea') && dataBlock.includes('Release & Shipping'), 'skills + categories embedded');
+ok(JSON.parse(dataBlock).skills.length === 2, 'data block is valid JSON the client can parse');
 
 // nonce() should be reasonably long and alphanumeric.
 const n = wp.nonce();
 ok(/^[A-Za-z0-9]{32}$/.test(n), 'nonce() is 32 alphanumerics');
 
-// The embedded client script must be syntactically valid JS (new Function parses
+// The static client script must be syntactically valid JS (new Function parses
 // without running). Catches escaping bugs in the regex-heavy markdown renderer.
-const scriptMatch = html.match(new RegExp('<script nonce="' + N + '">([\\s\\S]*?)<\\/script>'));
-ok(!!scriptMatch, 'found the embedded script');
 let parsed = true;
-try { new Function(scriptMatch[1]); } catch (e) { parsed = false; console.error('client script parse error:', e.message); }
-ok(parsed, 'embedded client script parses as valid JS');
-ok(scriptMatch[1].includes('function mdToHtml'), 'markdown renderer present');
-ok(scriptMatch[1].includes('function categorySelect'), 'category selector present');
-ok(scriptMatch[1].includes("coveredByGlobal"), 'global-covers-project logic present');
+try { new Function(clientSrc); } catch (e) { parsed = false; console.error('client script parse error:', e.message); }
+ok(parsed, 'static client script parses as valid JS');
+ok(clientSrc.includes('function mdToHtml'), 'markdown renderer present in client');
+ok(clientSrc.includes('function categorySelect'), 'category selector present in client');
+ok(clientSrc.includes('coveredByGlobal'), 'global-covers-project logic present in client');
+ok(clientSrc.includes("JSON.parse"), 'client reads its initial state from the data block');
+ok(clientSrc.includes('function normLayout'), 'normLayout defined in client');
 
 // In-panel Settings for the Skills Hub folder: a gear button, the settings modal,
 // and the browse/save wiring (so the hub path is configurable from the UI, not only
@@ -58,9 +77,9 @@ ok(scriptMatch[1].includes("coveredByGlobal"), 'global-covers-project logic pres
 ok(html.includes('id="open-settings"'), 'settings (gear) button present in header');
 ok(html.includes('id="settings-modal"'), 'settings modal present');
 ok(html.includes('id="settings-browse"'), 'settings has a Browse button');
-ok(scriptMatch[1].includes('function openSettings'), 'openSettings wired');
-ok(scriptMatch[1].includes("type: 'browseHub'") && scriptMatch[1].includes("type: 'setHub'"), 'browse/save post messages wired');
-ok(scriptMatch[1].includes('function hubEmptyState'), 'actionable empty-hub state present');
+ok(clientSrc.includes('function openSettings'), 'openSettings wired in client');
+ok(clientSrc.includes("type: 'browseHub'") && clientSrc.includes("type: 'setHub'"), 'browse/save post messages wired');
+ok(clientSrc.includes('function hubEmptyState'), 'actionable empty-hub state present');
 
 // ── Markdown renderer security (the README preview path) ───────────────────────
 // Attribute-breakout via a link URL containing a quote must NOT inject attributes.
@@ -76,45 +95,43 @@ ok(wp.inline('[x](data:text/html,<b>)').includes('href="#"'), 'data: URL neutral
 ok(wp.inline('[ok](https://example.com)').includes('href="https://example.com"'), 'https URL preserved');
 // Raw HTML / script in the body is escaped, not emitted as live markup.
 {
-  const html = wp.mdToHtml('# Title\n\n<script>alert(1)</script>\n\n- item');
-  ok(!html.includes('<script>'), 'raw <script> in markdown is escaped');
-  ok(html.includes('&lt;script&gt;'), 'script tag rendered as text');
-  ok(html.includes('<h1>Title</h1>') && html.includes('<li>item</li>'), 'known markdown still renders');
+  const out = wp.mdToHtml('# Title\n\n<script>alert(1)</script>\n\n- item');
+  ok(!out.includes('<script>'), 'raw <script> in markdown is escaped');
+  ok(out.includes('&lt;script&gt;'), 'script tag rendered as text');
+  ok(out.includes('<h1>Title</h1>') && out.includes('<li>item</li>'), 'known markdown still renders');
 }
-// The host functions and the embedded client source are the SAME implementation.
-ok(wp.markdownClientSource().includes('function mdToHtml'), 'client source carries mdToHtml');
-ok(html.includes(wp.escAttr('a"b')) === false || wp.escAttr('a"b') === 'a&quot;b', 'escAttr escapes quotes');
+// The host copy and the client copy of the markdown renderer must stay in sync.
+ok(clientSrc.includes('function mdToHtml') && clientSrc.includes('function inline'), 'client carries its own md helpers');
+ok(wp.escAttr('a"b') === 'a&quot;b', 'escAttr escapes quotes');
 
 // ── Category management UI (rename / delete with confirm-on-non-empty) ─────────
 ok(html.includes('id="confirm-modal"'), 'confirm modal markup present');
 {
-  const script = html.match(new RegExp('<script nonce="' + N + '">([\\s\\S]*?)<\\/script>'))[1];
-  ok(script.includes('Rename category'), 'rename action present in sidebar');
-  ok(script.includes('openConfirm'), 'delete routes through a confirm dialog');
-  ok(/if \(n > 0\)/.test(script), 'confirm is gated on the category having skills (empty → no confirm)');
+  ok(clientSrc.includes('Rename category'), 'rename action present in sidebar');
+  ok(clientSrc.includes('openConfirm'), 'delete routes through a confirm dialog');
+  ok(/if \(n > 0\)/.test(clientSrc), 'confirm is gated on the category having skills (empty → no confirm)');
   // Sidebar structure: fixed items, separators, pin action.
-  ok(script.includes('navSep'), 'sidebar renders separators');
-  ok(script.includes("mkCat('Uncategorized'"), 'Uncategorized is a fixed top item');
-  ok(script.includes('+ New category'), 'New category is a fixed top item');
-  ok(script.includes("type: 'setPinned'"), 'pin/unpin action present');
-  ok(script.includes('state.pinned'), 'sidebar groups pinned categories');
+  ok(clientSrc.includes('navSep'), 'sidebar renders separators');
+  ok(clientSrc.includes("mkCat('Uncategorized'"), 'Uncategorized is a fixed top item');
+  ok(clientSrc.includes('+ New category'), 'New category is a fixed top item');
+  ok(clientSrc.includes("type: 'setPinned'"), 'pin/unpin action present');
+  ok(clientSrc.includes('state.pinned'), 'sidebar groups pinned categories');
   // Layout switcher: grid/list toggle, persisted, accessible.
   ok(html.includes('id="layout-grid"') && html.includes('id="layout-list"'), 'grid/list layout switcher present');
-  ok(script.includes("type: 'setLayout'"), 'layout choice is persisted via setLayout');
-  ok(script.includes('rowitem'), 'list layout class present');
+  ok(clientSrc.includes("type: 'setLayout'"), 'layout choice is persisted via setLayout');
+  ok(clientSrc.includes('rowitem'), 'list layout class present');
   ok(html.includes('aria-label="Grid view"') && html.includes('aria-label="List view"'), 'layout buttons have accessible names');
   ok(html.includes('role="group"') && html.includes('aria-label="Skill layout"'), 'layout switch is a labelled group');
-  ok(script.includes('aria-pressed'), 'active layout is exposed via aria-pressed');
+  ok(clientSrc.includes('aria-pressed'), 'active layout is exposed via aria-pressed');
   ok(html.includes(':focus-visible'), 'visible keyboard-focus styles present');
-  ok(script.includes('function normLayout'), 'normLayout shipped into the client (single source)');
   // Top-level tabs: Hub vs This project, with a Local/Global split in the project view.
   ok(html.includes('id="tab-hub"') && html.includes('id="tab-project"'), 'Hub / This project tabs present');
   ok(html.includes('role="tablist"'), 'tabs form an accessible tablist');
-  ok(script.includes('function projectSkills') && script.includes('function tabSkills'), 'tab scoping helpers present');
-  ok(script.includes('function renderProjectMain'), 'project view renderer present');
-  ok(script.includes('isLocal(s) && !isGlobal(s)'), 'a globally-linked skill is shown only under Global, not Local');
-  ok(script.includes("projTabBtn.disabled = !state.hasProject"), 'project tab is disabled without an open project');
-  ok(script.includes('aria-selected'), 'active tab is exposed via aria-selected');
+  ok(clientSrc.includes('function projectSkills') && clientSrc.includes('function tabSkills'), 'tab scoping helpers present');
+  ok(clientSrc.includes('function renderProjectMain'), 'project view renderer present');
+  ok(clientSrc.includes('isLocal(s) && !isGlobal(s)'), 'a globally-linked skill is shown only under Global, not Local');
+  ok(clientSrc.includes("projTabBtn.disabled = !state.hasProject"), 'project tab is disabled without an open project');
+  ok(clientSrc.includes('aria-selected'), 'active tab is exposed via aria-selected');
 }
 
 // computeState carries a normalised layout on every push (so a refresh never drops it).

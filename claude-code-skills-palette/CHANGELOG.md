@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+- Internal: the palette webview client now ships as a static file (webview/palette-client.js) loaded via a nonce'd script reference, instead of being generated inline from function source at runtime.
+- Initial state is passed as a non-executable JSON data block rather than embedded in inline code.
+- No behaviour change - this removes dynamically-assembled script patterns so the extension can also be distributed through an extension marketplace.
+
 ## 0.3.0
 - Configurable Skills Hub folder: set it from inside the palette via a new gear (settings) button in the header - Browse to a folder or paste a path. No more editing settings.json by hand.
 - New `claudeCodeSkillsPalette.hubPath` setting (supports a leading `~` and `${env:VAR}`); leave it empty to use the default `~/.claude/SkillsHub`.
