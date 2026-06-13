@@ -26,10 +26,14 @@ Click the plug button in the Claude panel footer and the palette window opens.
 
 - **Grid / List layout** - a toggle to switch the card layout; the choice is remembered between opens.
 
-- **A card per skill** - title, summary, status badges (linked / global / broken), a category selector, and action buttons:
+- **A card per skill** - a consistent three-row block in both Grid and List layouts:
+  1. The skill name + status badges (linked / global / broken).
+  2. A one-line description.
+  3. A controls row: a category selector and the action buttons below.
   - **Link to project / Unlink from project** - link or unlink for the current project.
   - **Link globally / Unlink global** - link or unlink globally (for all projects).
-  - **Preview** - render the SKILL.md (Markdown) inside the panel, with a sticky back bar.
+  - **Preview** (eye icon) - render the SKILL.md (Markdown) inside the panel, with a sticky back bar.
+  - **Open folder** (folder icon) - open the skill's folder in your OS file manager, so you can edit its files or rename it.
 
 ## Install (always the latest)
 

@@ -18,8 +18,8 @@ Click the plug button in the Claude panel footer and the palette opens. Inside:
   - **Hub** - every skill in the hub. The place to discover a skill and link it.
   - **This project** - only what is linked to the open project, split into **Local** (linked to this project only) and **Global** (linked globally, active in every project). A skill linked both ways shows only under Global. The tab is disabled while no project is open.
 - **A category sidebar** with search, pinning, rename and delete - counts are scoped to the active tab.
-- **Grid / List layouts**, and an in-panel **Preview** of the SKILL.md (rendered Markdown).
-- **Link / unlink** a skill to the project or globally, straight from its card.
+- **Grid / List layouts**, with each skill shown as a consistent three-row card: name + badges, a one-line description, then its controls.
+- **Link / unlink** a skill to the project or globally, **preview** its SKILL.md, or **open its folder** in your file manager to edit it - all straight from the card.
 
 ## How it works
 
