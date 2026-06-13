@@ -81,6 +81,12 @@ ok(clientSrc.includes('function openSettings'), 'openSettings wired in client');
 ok(clientSrc.includes("type: 'browseHub'") && clientSrc.includes("type: 'setHub'"), 'browse/save post messages wired');
 ok(clientSrc.includes('function hubEmptyState'), 'actionable empty-hub state present');
 
+// Card shape: a single controls row (category + buttons together) plus an open-folder
+// icon that asks the host to reveal the skill's hub folder for editing.
+ok(clientSrc.includes("controls.className = 'controls'"), 'card builds one combined controls row');
+ok(clientSrc.includes("type: 'openFolder'"), 'open-folder action posts openFolder to the host');
+ok(html.includes('.iconbtn'), 'icon-button styling present');
+
 // ── Markdown renderer security (the README preview path) ───────────────────────
 // Attribute-breakout via a link URL containing a quote must NOT inject attributes.
 {

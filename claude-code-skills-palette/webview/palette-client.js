@@ -145,6 +145,8 @@ function counts() {
 var PENCIL = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
 var TRASH = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
 var PIN = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+var FOLDER = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+var EYE = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
 
 function navSep() { const s = document.createElement('div'); s.className = 'nav-sep'; navEl.appendChild(s); }
 
@@ -208,6 +210,11 @@ function btn(cls, text, on, disabled) {
   const b = document.createElement('button'); b.className = cls; b.textContent = text; b.disabled = !!disabled;
   if (!disabled) b.addEventListener('click', on); return b;
 }
+function iconBtn(cls, svg, title, on) {
+  const b = document.createElement('button'); b.className = cls; b.type = 'button'; b.innerHTML = svg;
+  b.title = title; b.setAttribute('aria-label', title);
+  b.addEventListener('click', on); return b;
+}
 
 function categorySelect(skill) {
   const sel = document.createElement('select');
@@ -232,7 +239,7 @@ function makeCard(s) {
   const card = document.createElement('div'); card.className = 'card' + (linked ? ' linked' : '') + (layout === 'list' ? ' rowitem' : '');
   const top = document.createElement('div'); top.className = 'top';
   const title = document.createElement('span'); title.className = 'title'; title.textContent = s.title;
-  title.title = 'Open README preview';
+  title.title = s.title; // full name on hover (the row truncates long names to one line)
   title.addEventListener('click', () => vscode.postMessage({ type: 'preview', name: s.name }));
   top.appendChild(title);
   const coveredByGlobal = s.glob === 'linked' && !linked;
@@ -248,11 +255,14 @@ function makeCard(s) {
   sum.title = 'Open README preview';
   sum.addEventListener('click', () => vscode.postMessage({ type: 'preview', name: s.name }));
   card.appendChild(sum);
-  const catrow = document.createElement('div'); catrow.className = 'catrow';
-  const lbl = document.createElement('span'); lbl.textContent = 'Category:'; catrow.appendChild(lbl);
-  catrow.appendChild(categorySelect(s));
-  card.appendChild(catrow);
-  const actions = document.createElement('div'); actions.className = 'actions';
+  // Row 3: every control on one line — category picker, link/preview buttons, and an
+  // open-folder icon that reveals the skill's hub folder so its files (and the folder
+  // name itself) can be edited.
+  const controls = document.createElement('div'); controls.className = 'controls';
+  const catpick = document.createElement('span'); catpick.className = 'catpick';
+  const lbl = document.createElement('span'); lbl.className = 'catlbl'; lbl.textContent = 'Category:'; catpick.appendChild(lbl);
+  catpick.appendChild(categorySelect(s));
+  controls.appendChild(catpick);
   // A globally-linked skill is ALREADY available in every project, so linking it
   // per-project is redundant — disable that action and explain why.
   const projDisabled = !state.hasProject || coveredByGlobal;
@@ -260,11 +270,15 @@ function makeCard(s) {
     () => vscode.postMessage({ type: 'toggleProject', name: s.name }), projDisabled);
   if (coveredByGlobal) projBtn.title = 'Already available here via the global link. Unlink global to make it per-project only.';
   else if (!state.hasProject) projBtn.title = 'Open a project folder first.';
-  actions.appendChild(projBtn);
-  actions.appendChild(btn('secondary', s.glob === 'linked' ? 'Unlink global' : 'Link globally',
+  controls.appendChild(projBtn);
+  controls.appendChild(btn('secondary', s.glob === 'linked' ? 'Unlink global' : 'Link globally',
     () => vscode.postMessage({ type: 'toggleGlobal', name: s.name })));
-  actions.appendChild(btn('secondary', 'Preview', () => vscode.postMessage({ type: 'preview', name: s.name })));
-  card.appendChild(actions);
+  // Preview + open-folder are icon-only (with tooltips) so the controls row stays
+  // narrow and never overflows the card.
+  controls.appendChild(iconBtn('iconbtn', EYE, 'Preview README', () => vscode.postMessage({ type: 'preview', name: s.name })));
+  controls.appendChild(iconBtn('iconbtn', FOLDER, 'Open skill folder (edit its files / name)',
+    () => vscode.postMessage({ type: 'openFolder', name: s.name })));
+  card.appendChild(controls);
   return card;
 }
 

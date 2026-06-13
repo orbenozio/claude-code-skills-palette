@@ -190,32 +190,39 @@ function renderHtml(state, theNonce, cspSource, clientUri) {
   .section-count { margin-left: auto; font-size: 11px; opacity: .5; font-variant-numeric: tabular-nums; }
   main { overflow-y: auto; padding: 0 var(--gap) var(--gap); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); align-content: start; padding-top: var(--gap); }
-  .list { display: flex; flex-direction: column; gap: 6px; padding-top: var(--gap); }
-  .card.rowitem { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 8px 12px; }
-  .card.rowitem .top { flex: 0 0 auto; max-width: 320px; }
-  /* keep List rows compact: a long summary truncates to one line instead of wrapping
-     the row into a second "card-like" line. min-width:0 lets the ellipsis kick in. */
-  .card.rowitem .summary { flex: 1 1 180px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card.rowitem .catrow, .card.rowitem .actions { flex: 0 0 auto; }
+  .list { display: flex; flex-direction: column; gap: 8px; padding-top: var(--gap); }
+  /* List cards keep the SAME 3-row block as grid cards; they just span the full width
+     (one per row) instead of sitting in a responsive column track. Nothing is laid out
+     horizontally, so long names, summaries and buttons never collide or overflow. */
   .card { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25)); border-radius: 8px; background: var(--vscode-editorWidget-background); }
   .card.linked { border-color: var(--vscode-charts-green, #4caf50); }
   .card .top { display: flex; align-items: center; gap: 6px; }
-  .card .title { font-weight: 600; font-size: 13px; flex: 1; cursor: pointer; }
+  /* Title stays on a single line (badges keep their space); long names truncate with
+     an ellipsis and show in full on hover. Keeps row 1 to one line, always. */
+  .card .title { font-weight: 600; font-size: 13px; flex: 1; min-width: 0; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .card .title:hover { text-decoration: underline; }
   .badge { font-size: 10px; padding: 1px 6px; border-radius: 10px; white-space: nowrap; }
   .badge.proj { background: color-mix(in srgb, var(--vscode-charts-green, #4caf50) 25%, transparent); color: var(--vscode-charts-green, #4caf50); }
   .badge.glob { background: color-mix(in srgb, var(--vscode-charts-blue, #4aa3ff) 25%, transparent); color: var(--vscode-charts-blue, #4aa3ff); }
   .badge.broken { background: color-mix(in srgb, var(--vscode-charts-yellow, #e6c000) 30%, transparent); color: var(--vscode-charts-yellow, #e6c000); }
-  .card .summary { font-size: 12px; opacity: .75; line-height: 1.35; flex: 1; cursor: pointer; }
-  .card .catrow { display: flex; align-items: center; gap: 6px; font-size: 11px; opacity: .85; }
+  /* Summary is always a single line (truncated) so every card keeps the same
+     3-row shape: title+badges / summary / controls. */
+  .card .summary { font-size: 12px; opacity: .75; line-height: 1.35; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Controls row: category picker + link/preview buttons + open-folder icon, all together. */
+  .card .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .card .catpick { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; opacity: .85; }
+  .card .catlbl { white-space: nowrap; }
   select { font-family: inherit; font-size: 11px; padding: 2px 4px; color: var(--vscode-dropdown-foreground); background: var(--vscode-dropdown-background); border: 1px solid var(--vscode-dropdown-border, transparent); border-radius: 4px; max-width: 100%; }
-  .card .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   button { font-family: inherit; font-size: 12px; padding: 4px 9px; border: none; border-radius: 4px; cursor: pointer; }
   button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
   button.primary:hover { background: var(--vscode-button-hoverBackground); }
   button.secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
   button.secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
   button:disabled { opacity: .45; cursor: default; }
+  /* Icon-only action button (open skill folder). Matches the secondary buttons' colour. */
+  .iconbtn { display: inline-flex; align-items: center; justify-content: center; padding: 4px 6px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+  .iconbtn:hover { background: var(--vscode-button-secondaryHoverBackground); }
+  .iconbtn svg { width: 15px; height: 15px; display: block; }
   .empty { opacity: .6; padding: 20px; }
   /* README preview */
   .preview { max-width: 820px; }
@@ -424,6 +431,15 @@ async function openWebviewPalette(vscode, deps) {
         const text = await require('fs').promises.readFile(path.join(s.hubPath, 'SKILL.md'), 'utf8');
         const { body } = hubReader.splitFrontmatter(text);
         panel.webview.postMessage({ type: 'previewContent', name: s.name, title: s.title, body });
+        return;
+      }
+
+      if (msg.type === 'openFolder') {
+        // Reveal the skill's hub folder in the OS file manager so the user can edit its
+        // files (SKILL.md, assets) or rename the folder itself.
+        const s = await skillFromHub(msg.name);
+        if (!s) { output.appendLine(`[webview] openFolder: unknown skill ${msg.name}`); return; }
+        await vscode.env.openExternal(vscode.Uri.file(s.hubPath));
         return;
       }
 

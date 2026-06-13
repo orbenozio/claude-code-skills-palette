@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+- Skill cards now use a consistent three-row block in both Grid and List views: name + tags, a one-line description, then all controls on one row.
+- New open-folder icon on each card opens that skill's folder in the OS file manager, so you can edit its files or rename it.
+- Preview is now a compact icon button (with tooltip) next to the open-folder icon, keeping the controls row narrow.
+- List view cards are full-width blocks instead of a cramped single horizontal row, so long names, descriptions and buttons no longer collide or overflow the card.
+- Long skill names truncate to one line, with the full name shown on hover.
+
 ## 0.3.1
 - Internal: the palette webview client now ships as a static file (webview/palette-client.js) loaded via a nonce'd script reference, instead of being generated inline from function source at runtime.
 - Initial state is passed as a non-executable JSON data block rather than embedded in inline code.
