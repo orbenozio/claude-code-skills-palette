@@ -11,7 +11,9 @@ let statusBarItem;
 function create(vscode, context) {
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   statusBarItem.command = 'claudeCodeSkillsPalette.open';
-  statusBarItem.text = '$(checklist) Skills';
+  // Show the running extension version next to the label (e.g. "Skills v0.4.0").
+  const version = context.extension && context.extension.packageJSON && context.extension.packageJSON.version;
+  statusBarItem.text = version ? `$(checklist) Skills v${version}` : '$(checklist) Skills';
   statusBarItem.tooltip = 'Open Skills Palette — link a hub skill to this project';
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);

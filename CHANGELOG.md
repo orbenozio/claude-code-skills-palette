@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.1
+- The status-bar item now shows the running extension version next to its label (e.g. "Skills v0.4.1"), read from the manifest so it tracks every release.
+
 ## 0.4.0
 - Skill cards now use a consistent three-row block in both Grid and List views: name + tags, a one-line description, then all controls on one row.
 - New open-folder icon on each card opens that skill's folder in the OS file manager, so you can edit its files or rename it.
