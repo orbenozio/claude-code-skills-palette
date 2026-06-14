@@ -41,7 +41,15 @@ Download the latest VSIX from the permanent link:
 
 https://github.com/orbenozio/claude-code-skills-palette/releases/latest/download/claude-code-skills-palette.vsix
 
-Then in VSCode: **Extensions -> ... -> Install from VSIX...** -> pick the file -> Reload. (A VSIX install does not auto-update - upgrading means downloading and installing again.)
+Then in VSCode: **Extensions -> ... -> Install from VSIX...** -> pick the file -> Reload.
+
+## Staying up to date
+
+A VSIX installed by hand does not auto-update like a marketplace extension, so the palette updates itself from GitHub Releases instead:
+
+- On startup (at most once a day) it checks for a newer release and, if one exists, offers a one-click **Update now** that downloads and installs the latest VSIX, then prompts to reload.
+- The **status-bar item** shows the running version (e.g. `Skills v0.4.2`) and badges to `Skills v0.4.2 → v0.4.3` on a warning background when an update is available. Click it for a menu to open the palette or **Check for Updates** on demand (also available as the `Skills Palette: Check for Updates` command).
+- Turn the startup check off with the `claudeCodeSkillsPalette.autoUpdateCheck` setting.
 
 ## Configure your Skills Hub
 

@@ -10,6 +10,7 @@ const injector = require('./injector');
 const { writeAndVerify } = require('./atomicWrite');
 const { resolveTargets } = require('./targets/claude-code');
 const statusBar = require('./statusBar');
+const updater = require('./updater');
 const output = require('./output');
 const { openPalette } = require('./paletteUI');
 const { openWebviewPalette } = require('./webviewPalette');
@@ -201,6 +202,24 @@ function openQuickPick(context, wsPath) {
   });
 }
 
+/** Background update check that badges the status bar; controlled by a setting. */
+function backgroundUpdateCheck(context) {
+  if (!getConfig().get('autoUpdateCheck', true)) return;
+  updater.checkForUpdate(vscode, context, {
+    interactive: false,
+    onResult: (r) => statusBar.reflectUpdate(r.remoteVersion),
+  }).catch((err) => console.error('[SkillsPalette] update check failed:', err));
+}
+
+/** The status-bar click target: a tiny menu (open palette / check for updates). */
+async function showMenu(context) {
+  const OPEN = '$(rocket) Open Skills Palette';
+  const UPDATE = '$(sync) Check for Updates';
+  const pick = await vscode.window.showQuickPick([OPEN, UPDATE], { placeHolder: 'Skills Palette' });
+  if (pick === OPEN) open(context, null);
+  else if (pick === UPDATE) updater.checkForUpdate(vscode, context, { interactive: true, onResult: (r) => statusBar.reflectUpdate(r.remoteVersion) });
+}
+
 function activate(context) {
   // Register the launch paths FIRST, before anything that can throw (e.g. reading the
   // webview script off disk). onUri can activate this extension via the footer
@@ -220,6 +239,11 @@ function activate(context) {
       const n = removeInjection();
       vscode.window.showInformationMessage(`Skills Palette: removed injection from ${n} target(s). Reload to apply.`);
     }),
+    vscode.commands.registerCommand('claudeCodeSkillsPalette.checkForUpdate', () =>
+      updater.checkForUpdate(vscode, context, { interactive: true, onResult: (r) => statusBar.reflectUpdate(r.remoteVersion) }),
+    ),
+    // Status-bar click target (not contributed to the palette to avoid clutter).
+    vscode.commands.registerCommand('claudeCodeSkillsPalette.menu', () => showMenu(context)),
   );
 
   // The footer button's vscode: deep link arrives here:
@@ -261,6 +285,7 @@ function activate(context) {
     if (r.changed > 0) offerReload();
     scheduleReinject(context);
     registerFocusReinject(context);
+    backgroundUpdateCheck(context);
   } catch (err) {
     console.error('[SkillsPalette] injection setup failed:', err);
     statusBar.reflect({ changed: 0, targets: 0 });
